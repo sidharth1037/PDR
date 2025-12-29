@@ -11,8 +11,12 @@ import kotlin.math.sin
 /**
  * Renders room labels on the floor plan with reverse rotation to keep text upright.
  * Labels are drawn at room center coordinates with the room name displayed.
+ * Labels only appear when zoomed in above a minimum threshold.
  */
 object RoomLabelsRenderer {
+
+    // Minimum zoom level required to display room labels
+    private const val MIN_ZOOM_TO_SHOW_LABELS = 0.64f
 
     /**
      * Draws room labels on the canvas.
@@ -30,6 +34,11 @@ object RoomLabelsRenderer {
         scale: Float,
         canvasRotation: Float
     ) {
+        // Don't draw labels if zoomed out beyond the threshold
+        if (scale < MIN_ZOOM_TO_SHOW_LABELS) {
+            return
+        }
+
         drawIntoCanvas { canvas ->
             val paint = Paint().apply {
                 color = android.graphics.Color.DKGRAY
@@ -57,11 +66,32 @@ object RoomLabelsRenderer {
                 val rotatedX = x * cos - y * sin
                 val rotatedY = x * sin + y * cos
 
-                // Get text bounds to size the background
-                val textBounds = android.graphics.Rect()
-                paint.getTextBounds(room.name, 0, room.name.length, textBounds)
+                // Split text into lines if it has more than 3 words
+                val words = room.name.split(" ")
+                val lines = if (words.size > 3) {
+                    listOf(
+                        words.take(2).joinToString(" "),
+                        words.drop(2).joinToString(" ")
+                    )
+                } else {
+                    listOf(room.name)
+                }
+
+                // Get text bounds for all lines to size the background
+                val textBounds = mutableListOf<android.graphics.Rect>()
+                for (line in lines) {
+                    val bounds = android.graphics.Rect()
+                    paint.getTextBounds(line, 0, line.length, bounds)
+                    textBounds.add(bounds)
+                }
+
                 val padding = 8f / scale
                 val cornerRadius = 8f / scale
+                val lineHeight = 40f / scale
+
+                // Calculate background dimensions based on all lines
+                val maxWidth = textBounds.maxOf { it.width() }
+                val totalHeight = textBounds.size * lineHeight
 
                 // Draw the room label with reverse rotation to keep text upright
                 canvas.nativeCanvas.save()
@@ -70,10 +100,10 @@ object RoomLabelsRenderer {
                 canvas.nativeCanvas.rotate(-canvasRotation)
 
                 // Draw white background rectangle with rounded corners
-                val bgLeft = -textBounds.width() / 2f - padding
-                val bgTop = -textBounds.height() / 2f - padding
-                val bgRight = textBounds.width() / 2f + padding
-                val bgBottom = textBounds.height() / 2f + padding
+                val bgLeft = -maxWidth / 2f - padding
+                val bgTop = -totalHeight / 2f - padding
+                val bgRight = maxWidth / 2f + padding
+                val bgBottom = totalHeight / 2f + padding
                 canvas.nativeCanvas.drawRoundRect(
                     android.graphics.RectF(bgLeft, bgTop, bgRight, bgBottom),
                     cornerRadius,
@@ -81,8 +111,12 @@ object RoomLabelsRenderer {
                     backgroundPaint
                 )
 
-                // Draw text on top (moved down slightly for better centering)
-                canvas.nativeCanvas.drawText(room.name, 0f, 6f / scale, paint)
+                // Draw text lines on top
+                for ((index, line) in lines.withIndex()) {
+                    val yOffset = -totalHeight / 2f + (index * lineHeight) + 32f / scale
+                    canvas.nativeCanvas.drawText(line, 0f, yOffset, paint)
+                }
+
                 canvas.nativeCanvas.restore()
             }
         }
