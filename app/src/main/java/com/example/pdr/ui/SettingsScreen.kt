@@ -74,6 +74,15 @@ fun SettingsScreen(stepViewModel: StepViewModel, floorPlanViewModel: FloorPlanVi
             )
         }
 
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Show Room Labels")
+            Spacer(modifier = Modifier.width(8.dp))
+            Switch(
+                checked = floorPlanViewModel.showRoomLabels,
+                onCheckedChange = { floorPlanViewModel.showRoomLabels = it }
+            )
+        }
+
         OutlinedTextField(
             value = floorPlanViewModel.floorPlanScale,
             onValueChange = { floorPlanViewModel.floorPlanScale = it },

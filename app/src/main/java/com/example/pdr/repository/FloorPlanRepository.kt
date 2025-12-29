@@ -5,6 +5,7 @@ import com.example.pdr.model.Wall
 import com.example.pdr.model.StairLine
 import com.example.pdr.model.Stairwell
 import com.example.pdr.model.Entrance
+import com.example.pdr.model.Room
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
@@ -150,6 +151,30 @@ class FloorPlanRepository(private val application: Application) {
 
             val entranceListType = object : TypeToken<List<Entrance>>() {}.type
             Gson().fromJson(entrancesArray, entranceListType)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    /**
+     * Loads rooms from the JSON file in the assets folder.
+     * Each room has a center coordinate and an optional name to display.
+     *
+     * @param fileName The name of the rooms JSON file (default: "first_floor_rooms.json")
+     * @return A list of Room objects.
+     */
+    fun loadRooms(fileName: String = "first_floor_rooms.json"): List<Room> {
+        return try {
+            val inputStream = application.assets.open(fileName)
+            val reader = InputStreamReader(inputStream)
+
+            // Parse the JSON object
+            val jsonObject = Gson().fromJson(reader, JsonObject::class.java)
+            val roomsArray = jsonObject.getAsJsonArray("rooms")
+
+            val roomListType = object : TypeToken<List<Room>>() {}.type
+            Gson().fromJson(roomsArray, roomListType)
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()

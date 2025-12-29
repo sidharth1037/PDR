@@ -28,6 +28,7 @@ import com.example.pdr.model.Stairwell
 import com.example.pdr.model.Wall
 import com.example.pdr.viewmodel.FloorPlanViewModel
 import com.example.pdr.viewmodel.StepViewModel
+import com.example.pdr.ui.components.RoomLabelsRenderer.drawRoomLabels
 import kotlin.math.abs
 
 /**
@@ -201,6 +202,16 @@ fun FloorPlanCanvas(
 
             if (floorPlanViewModel.showEntrances) {
                 drawEntrances(entrances, floorPlanScale, floorPlanRotationDegrees, scale, rotation)
+            }
+
+            if (floorPlanViewModel.showRoomLabels) {
+                drawRoomLabels(
+                    floorPlanViewModel.rooms,
+                    floorPlanScale,
+                    floorPlanRotationDegrees,
+                    scale,
+                    rotation
+                )
             }
 
             drawPdrPath(points)

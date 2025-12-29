@@ -154,6 +154,9 @@ class MainActivity : ComponentActivity() {
         
         val entrances = floorPlanRepository.loadEntrances()
         floorPlanViewModel.loadEntrances(entrances)
+        
+        val rooms = floorPlanRepository.loadRooms()
+        floorPlanViewModel.loadRooms(rooms)
 
         // PDR Repository - handles path calculation
         pdrRepository = PdrRepository()

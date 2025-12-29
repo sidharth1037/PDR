@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import com.example.pdr.model.Wall
 import com.example.pdr.model.Stairwell
 import com.example.pdr.model.Entrance
+import com.example.pdr.model.Room
 
 /**
  * Manages UI state for the floor plan.
@@ -19,11 +20,13 @@ class FloorPlanViewModel : ViewModel() {
     val walls = mutableStateListOf<Wall>()
     val stairwells = mutableStateListOf<Stairwell>()
     val entrances = mutableStateListOf<Entrance>()
+    val rooms = mutableStateListOf<Room>()
 
     // UI state for floor plan display
     var showFloorPlan by mutableStateOf(true)
     var showPointNumbers by mutableStateOf(false)
     var showEntrances by mutableStateOf(true)
+    var showRoomLabels by mutableStateOf(true)
     var isSettingOrigin by mutableStateOf(false)
     var floorPlanScale by mutableStateOf("0.62")
     var floorPlanRotation by mutableStateOf("0.00")
@@ -50,6 +53,14 @@ class FloorPlanViewModel : ViewModel() {
     fun loadEntrances(entrancesList: List<Entrance>) {
         entrances.clear()
         entrances.addAll(entrancesList)
+    }
+
+    /**
+     * Loads rooms from repository.
+     */
+    fun loadRooms(roomsList: List<Room>) {
+        rooms.clear()
+        rooms.addAll(roomsList)
     }
 
     /**
