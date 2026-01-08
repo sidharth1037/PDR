@@ -26,8 +26,8 @@ class MotionViewModel : ViewModel() {
             observeRepositoryFlows()
         }
 
-    // Exposes the latest classified motion type (e.g., "Idle") to the UI.
-    var motionType by mutableStateOf("Idle")
+    // Exposes the latest classified motion type (e.g., "walking", "upstairs", "downstairs", "idle") to the UI.
+    var motionType by mutableStateOf("idle")
         private set
 
     // Exposes the confidence score (0.0 to 1.0) of the latest classification to the UI.
@@ -49,7 +49,8 @@ class MotionViewModel : ViewModel() {
             viewModelScope.launch {
                 repo.motionEvents.collect { event ->
                     event?.let {
-                        motionType = it.motionType.name  // Convert enum to string for display
+                        // Use original classification name instead of enum name
+                        motionType = it.classificationName
                         confidence = it.confidence
                     }
                 }

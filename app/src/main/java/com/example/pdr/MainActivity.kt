@@ -11,7 +11,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.core.view.WindowCompat
 import com.example.pdr.model.StepDetector
 import com.example.pdr.model.HeadingDetector
-import com.example.pdr.model.MotionType
 import com.example.pdr.repository.PdrRepository
 import com.example.pdr.repository.MotionRepository
 import com.example.pdr.repository.FloorPlanRepository
@@ -107,17 +106,17 @@ class MainActivity : ComponentActivity() {
         
         LaunchedEffect(motionEvent.value) {
             motionEvent.value?.let { event ->
-                when (event.motionType) {
-                    MotionType.STAIR_ASCENT -> {
+                when (event.classificationName) {
+                    "upstairs" -> {
                         // User is going up
                         // TODO: Implement floor change logic
                     }
-                    MotionType.STAIR_DESCENT -> {
+                    "downstairs" -> {
                         // User is going down
                         // TODO: Implement floor change logic
                     }
                     else -> {
-                        // Walking, stationary, etc.
+                        // Walking, idle, etc.
                     }
                 }
             }

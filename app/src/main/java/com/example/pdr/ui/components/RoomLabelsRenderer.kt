@@ -16,7 +16,7 @@ import kotlin.math.sin
 object RoomLabelsRenderer {
 
     // Minimum zoom level required to display room labels
-    private const val MIN_ZOOM_TO_SHOW_LABELS = 0.64f
+    private const val MIN_ZOOM_TO_SHOW_LABELS = 0.68f
 
     /**
      * Draws room labels on the canvas.

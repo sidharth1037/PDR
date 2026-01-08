@@ -23,7 +23,7 @@ class FloorPlanRepository(private val application: Application) {
      *
      * @return A list of Wall objects.
      */
-    fun loadFloorPlan(fileName: String = "first_floor_walls.json"): List<Wall> {
+    fun loadFloorPlan(fileName: String = "floor_1_walls.json"): List<Wall> {
         return try {
             // Open the asset and use a stream reader to handle the file.
             val inputStream = application.assets.open(fileName)
@@ -46,7 +46,7 @@ class FloorPlanRepository(private val application: Application) {
      * @param fileName The name of the stair JSON file (default: "first_floor_stairs.json")
      * @return A list of Stairwell objects where each represents a complete stairwell polygon.
      */
-    fun loadStairwells(fileName: String = "first_floor_stairs.json"): List<Stairwell> {
+    fun loadStairwells(fileName: String = "floor_1_stairs.json"): List<Stairwell> {
         return try {
             val inputStream = application.assets.open(fileName)
             val reader = InputStreamReader(inputStream)
@@ -140,7 +140,7 @@ class FloorPlanRepository(private val application: Application) {
      * @param fileName The name of the entrance JSON file (default: "first_floor_entrances.json")
      * @return A list of Entrance objects.
      */
-    fun loadEntrances(fileName: String = "first_floor_entrances.json"): List<Entrance> {
+    fun loadEntrances(fileName: String = "floor_1_entrances.json"): List<Entrance> {
         return try {
             val inputStream = application.assets.open(fileName)
             val reader = InputStreamReader(inputStream)
@@ -164,7 +164,7 @@ class FloorPlanRepository(private val application: Application) {
      * @param fileName The name of the rooms JSON file (default: "first_floor_rooms.json")
      * @return A list of Room objects.
      */
-    fun loadRooms(fileName: String = "first_floor_rooms.json"): List<Room> {
+    fun loadRooms(fileName: String = "floor_1_rooms.json"): List<Room> {
         return try {
             val inputStream = application.assets.open(fileName)
             val reader = InputStreamReader(inputStream)

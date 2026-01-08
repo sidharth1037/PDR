@@ -22,7 +22,7 @@
     "3": "idle"
   },
   "window_size": 128,
-  "step_size": 32,
+  "step_size": 64,
   "sample_rate": 50,
   "input_shape": [1, 128, 4]
 }
