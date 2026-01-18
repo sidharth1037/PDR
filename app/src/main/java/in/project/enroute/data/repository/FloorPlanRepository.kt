@@ -1,6 +1,7 @@
 package `in`.project.enroute.data.repository
 
 import `in`.project.enroute.data.model.FloorPlanData
+import `in`.project.enroute.data.model.FloorPlanMetadata
 
 /**
  * Repository interface for loading floor plan data.
@@ -9,15 +10,24 @@ import `in`.project.enroute.data.model.FloorPlanData
 interface FloorPlanRepository {
     
     /**
-     * Loads complete floor plan data for the specified floor.
+     * Loads complete floor plan data for the specified floor within a building.
+     * @param buildingId Identifier for the building (e.g., "building_1")
      * @param floorId Identifier for the floor (e.g., "floor_1")
-     * @return FloorPlanData containing walls, stairwells, entrances, and rooms
+     * @return FloorPlanData containing walls, stairwells, entrances, rooms, and boundary
      */
-    suspend fun loadFloorPlan(floorId: String): FloorPlanData
+    suspend fun loadFloorPlan(buildingId: String, floorId: String): FloorPlanData
     
     /**
-     * Gets list of available floor IDs.
+     * Loads building metadata (scale, rotation, etc.).
+     * @param buildingId Identifier for the building
+     * @return FloorPlanMetadata for the building
+     */
+    suspend fun loadBuildingMetadata(buildingId: String): FloorPlanMetadata
+    
+    /**
+     * Gets list of available floor IDs for a building.
+     * @param buildingId Identifier for the building
      * @return List of floor identifiers
      */
-    suspend fun getAvailableFloors(): List<String>
+    suspend fun getAvailableFloors(buildingId: String): List<String>
 }

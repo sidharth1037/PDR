@@ -6,35 +6,53 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import `in`.project.enroute.data.model.BoundaryPoint
+import `in`.project.enroute.data.model.BoundaryPolygon
 import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Renders the floor plan boundary polygon.
- * Connects boundary points in order and fills with a solid color.
+ * Renders the floor plan boundary polygons.
+ * Fills all polygons with a solid color to mask floors below.
  */
 fun DrawScope.drawBoundary(
-    boundaryPoints: List<BoundaryPoint>,
+    boundaryPolygons: List<BoundaryPolygon>,
     scale: Float,
     rotationDegrees: Float,
     color: Color = Color.White
 ) {
-    if (boundaryPoints.isEmpty()) return
+    if (boundaryPolygons.isEmpty()) return
 
     val angleRad = Math.toRadians(rotationDegrees.toDouble()).toFloat()
     val cosAngle = cos(angleRad)
     val sinAngle = sin(angleRad)
 
+    for (polygon in boundaryPolygons) {
+        drawSinglePolygon(polygon.points, scale, cosAngle, sinAngle, color)
+    }
+}
+
+/**
+ * Draws a single boundary polygon.
+ */
+private fun DrawScope.drawSinglePolygon(
+    boundaryPoints: List<BoundaryPoint>,
+    scale: Float,
+    cosAngle: Float,
+    sinAngle: Float,
+    color: Color
+) {
+    if (boundaryPoints.isEmpty()) return
+
     // Transform and sort boundary points by id
     val sortedPoints = boundaryPoints.sortedBy { it.id }
-    
+
     val transformedPoints = sortedPoints.map { point ->
         val x = point.x * scale
         val y = point.y * scale
-        
+
         val rotatedX = x * cosAngle - y * sinAngle
         val rotatedY = x * sinAngle + y * cosAngle
-        
+
         Offset(rotatedX, rotatedY)
     }
 

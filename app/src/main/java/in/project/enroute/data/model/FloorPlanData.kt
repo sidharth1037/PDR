@@ -11,5 +11,5 @@ data class FloorPlanData(
     val stairwells: List<Stairwell> = emptyList(),
     val entrances: List<Entrance> = emptyList(),
     val rooms: List<Room> = emptyList(),
-    val boundaryPoints: List<BoundaryPoint> = emptyList()
+    val boundaryPolygons: List<BoundaryPolygon> = emptyList()
 )

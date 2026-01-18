@@ -12,6 +12,7 @@ import `in`.project.enroute.data.model.StairLine
 import `in`.project.enroute.data.model.Stairwell
 import `in`.project.enroute.data.model.Wall
 import `in`.project.enroute.data.model.BoundaryPoint
+import `in`.project.enroute.data.model.BoundaryPolygon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
@@ -26,13 +27,13 @@ class LocalFloorPlanRepository(
 
     private val gson = Gson()
 
-    override suspend fun loadFloorPlan(floorId: String): FloorPlanData = withContext(Dispatchers.IO) {
-        val metadata = loadMetadata("${floorId}_metadata.json")
+    override suspend fun loadFloorPlan(buildingId: String, floorId: String): FloorPlanData = withContext(Dispatchers.IO) {
+        val metadata = loadMetadata("${buildingId}_metadata.json")
         val walls = loadWalls("${floorId}_walls.json")
         val stairwells = loadStairwells("${floorId}_stairs.json")
         val entrances = loadEntrances("${floorId}_entrances.json")
         val rooms = loadRooms("${floorId}_rooms.json")
-        val boundaryPoints = loadBoundaryPoints("${floorId}_boundary.json")
+        val boundaryPolygons = loadBoundaryPolygons("${floorId}_boundary.json")
 
         FloorPlanData(
             floorId = floorId,
@@ -41,13 +42,17 @@ class LocalFloorPlanRepository(
             stairwells = stairwells,
             entrances = entrances,
             rooms = rooms,
-            boundaryPoints = boundaryPoints
+            boundaryPolygons = boundaryPolygons
         )
     }
 
-    override suspend fun getAvailableFloors(): List<String> = withContext(Dispatchers.IO) {
+    override suspend fun loadBuildingMetadata(buildingId: String): FloorPlanMetadata = withContext(Dispatchers.IO) {
+        loadMetadata("${buildingId}_metadata.json")
+    }
+
+    override suspend fun getAvailableFloors(buildingId: String): List<String> = withContext(Dispatchers.IO) {
         // For now, return hardcoded list. Later can scan assets or get from backend
-        listOf("floor_1")
+        listOf("floor_1", "floor_1.5")
     }
 
     /**
@@ -196,18 +201,30 @@ class LocalFloorPlanRepository(
     }
 
     /**
-     * Loads boundary points from JSON file.
+     * Loads boundary polygons from JSON file.
+     * Supports multiple polygons per floor (e.g., separate building sections).
      */
-    private fun loadBoundaryPoints(fileName: String): List<BoundaryPoint> {
+    private fun loadBoundaryPolygons(fileName: String): List<BoundaryPolygon> {
         return try {
             val inputStream = context.assets.open(fileName)
             val reader = InputStreamReader(inputStream)
 
             val jsonObject = gson.fromJson(reader, JsonObject::class.java)
-            val boundaryArray = jsonObject.getAsJsonArray("boundary_points")
+            val polygonsArray = jsonObject.getAsJsonArray("polygons")
 
-            val boundaryListType = object : TypeToken<List<BoundaryPoint>>() {}.type
-            gson.fromJson(boundaryArray, boundaryListType)
+            val polygons = mutableListOf<BoundaryPolygon>()
+            for (polygonElement in polygonsArray) {
+                val polygonObj = polygonElement.asJsonObject
+                val name = polygonObj.get("name").asString
+                val pointsArray = polygonObj.getAsJsonArray("points")
+
+                val pointsListType = object : TypeToken<List<BoundaryPoint>>() {}.type
+                val points: List<BoundaryPoint> = gson.fromJson(pointsArray, pointsListType)
+
+                polygons.add(BoundaryPolygon(name = name, points = points))
+            }
+
+            polygons
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()

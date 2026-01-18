@@ -1,0 +1,160 @@
+{
+  "floor": "1.5",
+  "total_polygons": 2,
+  "polygons": [
+    {
+      "name": "Polygon 1",
+      "points": [
+        {
+          "id": 0,
+          "x": 95,
+          "y": 935,
+          "source_point_id": "0"
+        },
+        {
+          "id": 1,
+          "x": 95,
+          "y": 935,
+          "source_point_id": "0"
+        },
+        {
+          "id": 2,
+          "x": 95,
+          "y": 1504,
+          "source_point_id": "1"
+        },
+        {
+          "id": 3,
+          "x": 667,
+          "y": 1504,
+          "source_point_id": "5"
+        },
+        {
+          "id": 4,
+          "x": 816,
+          "y": 1504,
+          "source_point_id": "6"
+        },
+        {
+          "id": 5,
+          "x": 816,
+          "y": 1776,
+          "source_point_id": "7"
+        },
+        {
+          "id": 6,
+          "x": 946,
+          "y": 1776,
+          "source_point_id": "11"
+        },
+        {
+          "id": 7,
+          "x": 946,
+          "y": 1504,
+          "source_point_id": "10"
+        },
+        {
+          "id": 8,
+          "x": 900,
+          "y": 1391,
+          "source_point_id": "25"
+        },
+        {
+          "id": 9,
+          "x": 761,
+          "y": 1253,
+          "source_point_id": "24"
+        },
+        {
+          "id": 10,
+          "x": 667,
+          "y": 1227,
+          "source_point_id": "2"
+        },
+        {
+          "id": 11,
+          "x": 370,
+          "y": 935,
+          "source_point_id": "19"
+        }
+      ]
+    },
+    {
+      "name": "Polygon 2",
+      "points": [
+        {
+          "id": 0,
+          "x": 946,
+          "y": 70,
+          "source_point_id": "8"
+        },
+        {
+          "id": 2,
+          "x": 946,
+          "y": 365,
+          "source_point_id": "9"
+        },
+        {
+          "id": 3,
+          "x": 1229,
+          "y": 649,
+          "source_point_id": "14"
+        },
+        {
+          "id": 3,
+          "x": 1266,
+          "y": 749,
+          "source_point_id": "23"
+        },
+        {
+          "id": 4,
+          "x": 1266,
+          "y": 749,
+          "source_point_id": "23"
+        },
+        {
+          "id": 5,
+          "x": 1401,
+          "y": 897,
+          "source_point_id": "22"
+        },
+        {
+          "id": 6,
+          "x": 1512,
+          "y": 935,
+          "source_point_id": "20"
+        },
+        {
+          "id": 7,
+          "x": 1786,
+          "y": 935,
+          "source_point_id": "21"
+        },
+        {
+          "id": 8,
+          "x": 1786,
+          "y": 806,
+          "source_point_id": "18"
+        },
+        {
+          "id": 9,
+          "x": 1512,
+          "y": 806,
+          "source_point_id": "17"
+        },
+        {
+          "id": 10,
+          "x": 1512,
+          "y": 649,
+          "source_point_id": "13"
+        },
+        {
+          "id": 11,
+          "x": 1512,
+          "y": 70,
+          "source_point_id": "12"
+        }
+      ]
+    }
+  ]
+}

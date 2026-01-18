@@ -20,14 +20,45 @@ import kotlinx.coroutines.launch
 data class FloorPlanUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
-    val floorPlanData: FloorPlanData? = null,
+    val allFloors: Map<Float, FloorPlanData> = emptyMap(),
+    val availableFloorNumbers: List<Float> = emptyList(),
+    val currentFloorNumber: Float = 1f,
     val canvasState: CanvasState = CanvasState(),
     val displayConfig: FloorPlanDisplayConfig = FloorPlanDisplayConfig()
-)
+) {
+    /**
+     * Returns all floors from bottom up to and including the current floor.
+     * Used for rendering floors stacked with proper masking.
+     */
+    val floorsToRender: List<FloorPlanData>
+        get() = availableFloorNumbers
+            .filter { it <= currentFloorNumber }
+            .sorted()
+            .mapNotNull { allFloors[it] }
+
+    /**
+     * Returns the current floor's data.
+     */
+    val currentFloorData: FloorPlanData?
+        get() = allFloors[currentFloorNumber]
+
+    /**
+     * Minimum floor number available.
+     */
+    val minFloor: Float
+        get() = availableFloorNumbers.minOrNull() ?: 1f
+
+    /**
+     * Maximum floor number available.
+     */
+    val maxFloor: Float
+        get() = availableFloorNumbers.maxOrNull() ?: 1f
+}
 
 /**
  * ViewModel for floor plan rendering.
  * Manages floor plan data loading and canvas state.
+ * Supports multiple floors with stacked rendering.
  */
 class FloorPlanViewModel(
     application: Application
@@ -40,28 +71,92 @@ class FloorPlanViewModel(
     val uiState: StateFlow<FloorPlanUiState> = _uiState.asStateFlow()
 
     /**
-     * Loads floor plan data for the specified floor.
+     * Loads all floors for a building.
+     * @param buildingId The building identifier (e.g., "building_1")
+     * @param floorIds List of floor IDs to load (e.g., ["floor_1", "floor_1.5", "floor_2"])
      */
-    fun loadFloorPlan(floorId: String) {
+    fun loadAllFloors(buildingId: String, floorIds: List<String>) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             try {
-                val floorPlanData = repository.loadFloorPlan(floorId)
+                val floorsMap = mutableMapOf<Float, FloorPlanData>()
+                val floorNumbers = mutableListOf<Float>()
+
+                for (floorId in floorIds) {
+                    val floorPlanData = repository.loadFloorPlan(buildingId, floorId)
+                    val floorNumber = extractFloorNumber(floorId)
+                    floorsMap[floorNumber] = floorPlanData
+                    floorNumbers.add(floorNumber)
+                }
+
+                val sortedFloorNumbers = floorNumbers.sorted()
+                val highestFloor = sortedFloorNumbers.lastOrNull() ?: 1f
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        floorPlanData = floorPlanData
+                        allFloors = floorsMap,
+                        availableFloorNumbers = sortedFloorNumbers,
+                        currentFloorNumber = highestFloor
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load floor plan"
+                        error = e.message ?: "Failed to load floor plans"
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Loads floor plan data for a single floor (legacy support).
+     */
+    fun loadFloorPlan(buildingId: String, floorId: String) {
+        loadAllFloors(buildingId, listOf(floorId))
+    }
+
+    /**
+     * Extracts the floor number from floor ID (e.g., "floor_1.5" -> 1.5f)
+     */
+    private fun extractFloorNumber(floorId: String): Float {
+        return floorId.removePrefix("floor_").toFloatOrNull() ?: 1f
+    }
+
+    /**
+     * Changes the current floor to the specified floor number.
+     */
+    fun setCurrentFloor(floorNumber: Float) {
+        val available = _uiState.value.availableFloorNumbers
+        if (floorNumber in available) {
+            _uiState.update { it.copy(currentFloorNumber = floorNumber) }
+        }
+    }
+
+    /**
+     * Moves to the next higher floor if available.
+     */
+    fun goToNextFloor() {
+        val current = _uiState.value.currentFloorNumber
+        val available = _uiState.value.availableFloorNumbers.sorted()
+        val currentIndex = available.indexOf(current)
+        if (currentIndex >= 0 && currentIndex < available.size - 1) {
+            _uiState.update { it.copy(currentFloorNumber = available[currentIndex + 1]) }
+        }
+    }
+
+    /**
+     * Moves to the next lower floor if available.
+     */
+    fun goToPreviousFloor() {
+        val current = _uiState.value.currentFloorNumber
+        val available = _uiState.value.availableFloorNumbers.sorted()
+        val currentIndex = available.indexOf(current)
+        if (currentIndex > 0) {
+            _uiState.update { it.copy(currentFloorNumber = available[currentIndex - 1]) }
         }
     }
 
