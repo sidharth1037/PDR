@@ -9,6 +9,7 @@ data class Room(
     val id: Int,
     val x: Float,
     val y: Float,
+    val number: Int? = null,
     val name: String? = null,
     @SerializedName("point_ids")
     val pointIds: List<Int> = emptyList()

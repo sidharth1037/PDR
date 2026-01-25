@@ -1,0 +1,96 @@
+{
+  "total_rooms": 7,
+  "rooms": [
+    {
+      "id": 1,
+      "x": 800.5,
+      "y": 4100.0,
+      "number": null,
+      "name": "Lift",
+      "point_ids": [
+        20,
+        21,
+        24,
+        25
+      ]
+    },
+    {
+      "id": 2,
+      "x": 381.0,
+      "y": 3735.5,
+      "number": 210,
+      "name": "Staff Room",
+      "point_ids": [
+        1,
+        19,
+        17,
+        96
+      ]
+    },
+    {
+      "id": 3,
+      "x": 1229.0,
+      "y": 3466.5,
+      "number": 209,
+      "name": "Computer Lab",
+      "point_ids": [
+        33,
+        37,
+        91,
+        92
+      ]
+    },
+    {
+      "id": 4,
+      "x": 381.0,
+      "y": 3247.0,
+      "number": 211,
+      "name": "Staff Room",
+      "point_ids": [
+        96,
+        17,
+        93,
+        15
+      ]
+    },
+    {
+      "id": 5,
+      "x": 381.0,
+      "y": 2774.5,
+      "number": 212,
+      "name": "IEDC",
+      "point_ids": [
+        88,
+        90,
+        86,
+        87
+      ]
+    },
+    {
+      "id": 6,
+      "x": 1229.0,
+      "y": 2479.5,
+      "number": 208,
+      "name": "Lecture Hall",
+      "point_ids": [
+        91,
+        92,
+        28,
+        36
+      ]
+    },
+    {
+      "id": 7,
+      "x": 381.0,
+      "y": 2070.5,
+      "number": 213,
+      "name": "Lecture Hall",
+      "point_ids": [
+        0,
+        10,
+        86,
+        87
+      ]
+    }
+  ]
+}

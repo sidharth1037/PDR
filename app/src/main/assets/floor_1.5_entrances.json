@@ -30,7 +30,7 @@
     {
       "id": 4,
       "x": 667.0,
-      "y": 1273.5,
+      "y": 1376.0,
       "available": true,
       "name": "MTB Department Library",
       "room_no": "201"
@@ -63,8 +63,8 @@
     },
     {
       "id": 8,
-      "x": 1089.5,
-      "y": 1063.0,
+      "x": 1512.0,
+      "y": 727.5,
       "available": true,
       "name": null,
       "room_no": null,

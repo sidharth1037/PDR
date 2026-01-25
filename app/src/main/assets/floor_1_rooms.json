@@ -5,7 +5,8 @@
       "id": 1,
       "x": 381.0,
       "y": 3880.5,
-      "name": "114: Gents Toilet",
+      "number": 114,
+      "name": "Gents Toilet",
       "point_ids": [
         1,
         15,
@@ -17,6 +18,7 @@
       "id": 2,
       "x": 791.75,
       "y": 4100.0,
+      "number": null,
       "name": "Lift",
       "point_ids": [
         15,
@@ -29,6 +31,7 @@
       "id": 3,
       "x": 400.25,
       "y": 3595.0,
+      "number": null,
       "name": null,
       "point_ids": [
         99,
@@ -41,7 +44,8 @@
       "id": 4,
       "x": 1229.5,
       "y": 3735.5,
-      "name": "113: Gents Waiting Room",
+      "number": 113,
+      "name": "Gents Waiting Room",
       "point_ids": [
         33,
         101,
@@ -53,7 +57,8 @@
       "id": 5,
       "x": 400.25,
       "y": 2476.0,
-      "name": "115: Software Computing Lab",
+      "number": 115,
+      "name": "Software Computing Lab",
       "point_ids": [
         100,
         99,
@@ -65,7 +70,8 @@
       "id": 6,
       "x": 1229.5,
       "y": 3032.5,
-      "name": "112: Staff Room",
+      "number": 112,
+      "name": "Staff Room",
       "point_ids": [
         31,
         98,
@@ -77,7 +83,8 @@
       "id": 7,
       "x": 1212.75,
       "y": 2269.0,
-      "name": "111: HOD Office",
+      "number": 111,
+      "name": "HOD Office",
       "point_ids": [
         28,
         46,
@@ -89,7 +96,8 @@
       "id": 8,
       "x": 2286.5,
       "y": 1203.25,
-      "name": "110: HOD Office",
+      "number": 110,
+      "name": "HOD Office",
       "point_ids": [
         48,
         50,
@@ -101,7 +109,8 @@
       "id": 9,
       "x": 2070.5,
       "y": 359.5,
-      "name": "105: Lecture Hall",
+      "number": 105,
+      "name": "Lecture Hall",
       "point_ids": [
         42,
         43,
@@ -113,7 +122,8 @@
       "id": 10,
       "x": 3050.5,
       "y": 1218.5,
-      "name": "109: Staff Room",
+      "number": 109,
+      "name": "Staff Room",
       "point_ids": [
         56,
         59,
@@ -125,7 +135,8 @@
       "id": 11,
       "x": 3193.5,
       "y": 359.5,
-      "name": "106: Lecture Hall",
+      "number": 106,
+      "name": "Lecture Hall",
       "point_ids": [
         54,
         55,
@@ -137,7 +148,8 @@
       "id": 12,
       "x": 3754.0,
       "y": 1218.5,
-      "name": "108: Ladies Waiting Room",
+      "number": 108,
+      "name": "Ladies Waiting Room",
       "point_ids": [
         60,
         61,
@@ -149,7 +161,8 @@
       "id": 13,
       "x": 3897.0,
       "y": 359.5,
-      "name": "107: Ladies Toilet",
+      "number": 107,
+      "name": "Ladies Toilet",
       "point_ids": [
         62,
         63,

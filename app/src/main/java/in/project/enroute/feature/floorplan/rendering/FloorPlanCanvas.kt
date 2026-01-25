@@ -22,6 +22,7 @@ import `in`.project.enroute.feature.floorplan.rendering.renderers.drawEntrances
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawRoomLabels
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawStairwells
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawWalls
+import `in`.project.enroute.feature.floorplan.rendering.renderers.drawBuildingName
 
 /**
  * Display configuration for the floor plan rendering.
@@ -206,6 +207,20 @@ fun FloorPlanCanvas(
                         canvasRotation = canvasState.rotation
                     )
                 }
+            }
+
+            // Draw building name when room labels are hidden (low zoom)
+            // Building name shows when zoom level is between 0.15 and 0.48
+            if (canvasState.scale >= 0.15f && canvasState.scale < 0.48f && floorsToRender.isNotEmpty()) {
+                val topFloor = floorsToRender.last()
+                drawBuildingName(
+                    buildingName = topFloor.metadata.buildingName,
+                    labelPosition = topFloor.metadata.labelPosition,
+                    scale = topFloor.metadata.scale,
+                    rotationDegrees = topFloor.metadata.rotation,
+                    canvasScale = canvasState.scale,
+                    canvasRotation = canvasState.rotation
+                )
             }
         }
     }

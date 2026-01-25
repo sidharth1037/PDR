@@ -5,7 +5,11 @@
     "y1": 1504,
     "x2": 667,
     "y2": 1776,
-    "stair_polygon_id": 1
+    "stair_polygon_id": 1,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   },
   {
     "type": "stair",
@@ -13,23 +17,11 @@
     "y1": 1504,
     "x2": 816,
     "y2": 1776,
-    "stair_polygon_id": 1
-  },
-  {
-    "type": "stair",
-    "x1": 667,
-    "y1": 1504,
-    "x2": 816,
-    "y2": 1504,
-    "stair_polygon_id": 1
-  },
-  {
-    "type": "stair",
-    "x1": 667,
-    "y1": 1776,
-    "x2": 816,
-    "y2": 1776,
-    "stair_polygon_id": 1
+    "stair_polygon_id": 1,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   },
   {
     "type": "stair",
@@ -37,7 +29,11 @@
     "y1": 649,
     "x2": 1512,
     "y2": 806,
-    "stair_polygon_id": 2
+    "stair_polygon_id": 2,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   },
   {
     "type": "stair",
@@ -45,7 +41,11 @@
     "y1": 649,
     "x2": 1786,
     "y2": 806,
-    "stair_polygon_id": 2
+    "stair_polygon_id": 2,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   },
   {
     "type": "stair",
@@ -53,7 +53,11 @@
     "y1": 649,
     "x2": 1786,
     "y2": 649,
-    "stair_polygon_id": 2
+    "stair_polygon_id": 2,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   },
   {
     "type": "stair",
@@ -61,6 +65,34 @@
     "y1": 806,
     "x2": 1786,
     "y2": 806,
-    "stair_polygon_id": 2
+    "stair_polygon_id": 2,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
+  },
+  {
+    "type": "stair",
+    "x1": 667,
+    "y1": 1504,
+    "x2": 816,
+    "y2": 1504,
+    "stair_polygon_id": 1,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
+  },
+  {
+    "type": "stair",
+    "x1": 667,
+    "y1": 1776,
+    "x2": 816,
+    "y2": 1776,
+    "stair_polygon_id": 1,
+    "floors_connected": [
+      2.0,
+      2.5
+    ]
   }
 ]

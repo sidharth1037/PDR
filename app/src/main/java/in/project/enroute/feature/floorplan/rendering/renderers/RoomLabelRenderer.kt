@@ -69,8 +69,15 @@ fun DrawScope.drawRoomLabels(
                 val textX = rotatedX * textCos - rotatedY * textSin
                 val textY = rotatedX * textSin + rotatedY * textCos
 
+                // Build label text with number and name
+                val labelText = if (room.number != null) {
+                    "${room.number}: ${room.name}"
+                } else {
+                    room.name
+                }
+
                 // Split label into lines if necessary
-                val lines = splitLabel(room.name, maxCharsPerLine = 15)
+                val lines = splitLabel(labelText, maxCharsPerLine = 15)
                 val lineHeight = paint.descent() - paint.ascent()
                 val totalHeight = lineHeight * lines.size
                 val startY = textY - totalHeight / 2

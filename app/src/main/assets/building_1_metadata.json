@@ -1,5 +1,10 @@
 {
   "building_id": "building_1",
+  "building_name": "Mother Theresa Block",
+  "label_position": {
+    "x": 1338,
+    "y": 1328
+  },
   "scale": 0.62,
   "rotation": 0.0
 }
