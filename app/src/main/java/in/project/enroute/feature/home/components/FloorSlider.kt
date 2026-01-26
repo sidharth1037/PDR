@@ -59,7 +59,7 @@ fun FloorSlider(
         visible = isVisible && availableFloors.size > 1,
         enter = fadeIn() + slideInVertically { -it },
         exit = fadeOut() + slideOutVertically { -it },
-        modifier = modifier.padding(horizontal = 12.dp)
+        modifier = modifier
     ) {
         FloorSliderContent(
             buildingName = buildingName,
@@ -80,43 +80,44 @@ private fun FloorSliderContent(
     currentFloor: Float,
     onFloorChange: (Float) -> Unit
 ) {
-    // Guard against invalid state during exit animations
-    if (availableFloors.size < 2) return
+    // Use safe defaults if list is empty (can happen briefly during exit animation)
+    val safeFloors = if (availableFloors.size >= 2) availableFloors else listOf(0f, 1f)
+    val safeCurrentFloor = if (availableFloors.contains(currentFloor)) currentFloor else safeFloors.first()
     
-    val minFloor = availableFloors.minOrNull() ?: 1f
-    val maxFloor = availableFloors.maxOrNull() ?: 1f
+    val minFloor = safeFloors.minOrNull() ?: 0f
+    val maxFloor = safeFloors.maxOrNull() ?: 1f
 
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .background(
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(28.dp)
             )
-            .padding(horizontal = 22.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Building name at top
         if (buildingName.isNotEmpty()) {
-            val floorDisplay = if (currentFloor == currentFloor.toInt().toFloat()) {
-                currentFloor.toInt().toString()
+            val floorDisplay = if (safeCurrentFloor == safeCurrentFloor.toInt().toFloat()) {
+                safeCurrentFloor.toInt().toString()
             } else {
-                currentFloor.toString()
+                safeCurrentFloor.toString()
             }
             Text(
                 text = "$buildingName : Floor $floorDisplay",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                textAlign = TextAlign.Center
             )
         }
 
         // Custom compact slider
         CompactFloorSlider(
-            availableFloors = availableFloors,
-            currentFloor = currentFloor,
+            availableFloors = safeFloors,
+            currentFloor = safeCurrentFloor,
             minFloor = minFloor,
             maxFloor = maxFloor,
             onFloorChange = onFloorChange,

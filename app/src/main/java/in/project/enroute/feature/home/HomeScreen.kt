@@ -3,6 +3,7 @@ package `in`.project.enroute.feature.home
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import `in`.project.enroute.feature.floorplan.FloorPlanViewModel
 import `in`.project.enroute.feature.floorplan.FloorPlanUiState
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
 import `in`.project.enroute.feature.home.components.FloorSlider
+import `in`.project.enroute.feature.home.components.SearchButton
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanCanvas
 
 @Composable
@@ -82,19 +84,30 @@ private fun HomeScreenContent(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Floor slider positioned at top center, layered over canvas
-                // Visibility is controlled by uiState.showFloorSlider
+                // Floor slider and search button positioned at top, layered over canvas
+                // Use Box to position them independently so SearchButton stays in place
                 Box(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(top = 8.dp)
+                        .padding(top = 8.dp, end = 8.dp, start = 8.dp)
                 ) {
+                    // Floor slider - takes available width except for search button space
                     FloorSlider(
                         buildingName = uiState.sliderBuildingName,
                         availableFloors = uiState.sliderFloorNumbers,
                         currentFloor = uiState.sliderCurrentFloor,
                         onFloorChange = onFloorChange,
-                        isVisible = uiState.showFloorSlider
+                        isVisible = uiState.showFloorSlider,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(end = 56.dp) // Leave space for search button
+                    )
+                    
+                    // Search button - fixed at top end, stays in place when slider hides
+                    SearchButton(
+                        isSliderVisible = uiState.showFloorSlider,
+                        modifier = Modifier.align(Alignment.TopEnd)
                     )
                 }
             }
