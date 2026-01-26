@@ -1,6 +1,7 @@
 package `in`.project.enroute.feature.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -14,7 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import `in`.project.enroute.feature.floorplan.FloorPlanViewModel
-import `in`.project.enroute.feature.floorplan.components.FloorSlider
+import `in`.project.enroute.feature.floorplan.FloorPlanUiState
+import `in`.project.enroute.feature.floorplan.rendering.CanvasState
+import `in`.project.enroute.feature.home.components.FloorSlider
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanCanvas
 
 @Composable
@@ -25,9 +28,39 @@ fun HomeScreen(
 
     // Load all floors on first composition
     LaunchedEffect(Unit) {
-        floorPlanViewModel.loadAllFloors("building_1", listOf("floor_1", "floor_1.5","floor_2","floor_2.5"))
+        floorPlanViewModel.loadAllFloors(
+            "building_1", 
+            listOf("floor_1", "floor_1.5", "floor_2", "floor_2.5")
+        )
     }
 
+    // Use BoxWithConstraints to get screen dimensions for viewport calculations
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Update screen size in ViewModel for viewport calculations
+        val screenWidth = constraints.maxWidth.toFloat()
+        val screenHeight = constraints.maxHeight.toFloat()
+        
+        LaunchedEffect(screenWidth, screenHeight) {
+            floorPlanViewModel.updateScreenSize(screenWidth, screenHeight)
+        }
+
+        // Delegate to content composable
+        HomeScreenContent(
+            uiState = uiState,
+            onCanvasStateChange = { floorPlanViewModel.updateCanvasState(it) },
+            onFloorChange = { floorPlanViewModel.setCurrentFloor(it) }
+        )
+    }
+}
+
+@Composable
+private fun HomeScreenContent(
+    uiState: FloorPlanUiState,
+    onCanvasStateChange: (CanvasState) -> Unit,
+    onFloorChange: (Float) -> Unit
+) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -37,28 +70,31 @@ fun HomeScreen(
                 CircularProgressIndicator()
             }
             uiState.error != null -> {
-                Text(text = uiState.error ?: "Unknown error")
+                Text(text = uiState.error)
             }
-            uiState.floorsToRender.isNotEmpty() -> {
+            uiState.allFloorsToRender.isNotEmpty() -> {
                 // Floor plan canvas filling entire screen
                 FloorPlanCanvas(
-                    floorsToRender = uiState.floorsToRender,
+                    floorsToRender = uiState.allFloorsToRender,
                     canvasState = uiState.canvasState,
-                    onCanvasStateChange = { floorPlanViewModel.updateCanvasState(it) },
+                    onCanvasStateChange = onCanvasStateChange,
                     displayConfig = uiState.displayConfig,
                     modifier = Modifier.fillMaxSize()
                 )
 
                 // Floor slider positioned at top center, layered over canvas
+                // Visibility is controlled by uiState.showFloorSlider
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 8.dp)
                 ) {
                     FloorSlider(
-                        availableFloors = uiState.availableFloorNumbers,
-                        currentFloor = uiState.currentFloorNumber,
-                        onFloorChange = { floorPlanViewModel.setCurrentFloor(it) }
+                        buildingName = uiState.sliderBuildingName,
+                        availableFloors = uiState.sliderFloorNumbers,
+                        currentFloor = uiState.sliderCurrentFloor,
+                        onFloorChange = onFloorChange,
+                        isVisible = uiState.showFloorSlider
                     )
                 }
             }

@@ -3,11 +3,14 @@ package `in`.project.enroute.feature.floorplan
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import `in`.project.enroute.data.model.Building
 import `in`.project.enroute.data.model.FloorPlanData
 import `in`.project.enroute.data.repository.FloorPlanRepository
 import `in`.project.enroute.data.repository.LocalFloorPlanRepository
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanDisplayConfig
+import `in`.project.enroute.feature.floorplan.state.BuildingState
+import `in`.project.enroute.feature.floorplan.utils.ViewportUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,50 +19,82 @@ import kotlinx.coroutines.launch
 
 /**
  * UI state for the floor plan feature.
+ * Supports multiple buildings with independent floor states.
  */
 data class FloorPlanUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
-    val allFloors: Map<Float, FloorPlanData> = emptyMap(),
-    val availableFloorNumbers: List<Float> = emptyList(),
-    val currentFloorNumber: Float = 1f,
+    
+    /**
+     * Map of building ID to its state (includes floors, current floor, etc.)
+     */
+    val buildingStates: Map<String, BuildingState> = emptyMap(),
+    
+    /**
+     * ID of the currently dominant building (based on viewport visibility)
+     * Null if no building is sufficiently visible
+     */
+    val dominantBuildingId: String? = null,
+    
+    /**
+     * Whether the floor slider should be shown
+     */
+    val showFloorSlider: Boolean = false,
+    
+    /**
+     * Canvas transformation state (pan, zoom, rotation)
+     */
     val canvasState: CanvasState = CanvasState(),
-    val displayConfig: FloorPlanDisplayConfig = FloorPlanDisplayConfig()
+    
+    /**
+     * Display configuration (visibility toggles, colors)
+     */
+    val displayConfig: FloorPlanDisplayConfig = FloorPlanDisplayConfig(),
+    
+    /**
+     * Screen dimensions for viewport calculations
+     */
+    val screenWidth: Float = 0f,
+    val screenHeight: Float = 0f
 ) {
     /**
-     * Returns all floors from bottom up to and including the current floor.
-     * Used for rendering floors stacked with proper masking.
+     * Returns the state of the dominant building, if any.
      */
-    val floorsToRender: List<FloorPlanData>
-        get() = availableFloorNumbers
-            .filter { it <= currentFloorNumber }
-            .sorted()
-            .mapNotNull { allFloors[it] }
-
+    val dominantBuildingState: BuildingState?
+        get() = dominantBuildingId?.let { buildingStates[it] }
+    
     /**
-     * Returns the current floor's data.
+     * Returns all floors to render from all buildings.
+     * Each building renders its floors up to its current floor level.
      */
-    val currentFloorData: FloorPlanData?
-        get() = allFloors[currentFloorNumber]
-
+    val allFloorsToRender: List<FloorPlanData>
+        get() = buildingStates.values.flatMap { it.floorsToRender }
+    
     /**
-     * Minimum floor number available.
+     * Returns floor numbers for the dominant building's slider.
      */
-    val minFloor: Float
-        get() = availableFloorNumbers.minOrNull() ?: 1f
-
+    val sliderFloorNumbers: List<Float>
+        get() = dominantBuildingState?.availableFloorNumbers ?: emptyList()
+    
     /**
-     * Maximum floor number available.
+     * Returns current floor number for the dominant building.
      */
-    val maxFloor: Float
-        get() = availableFloorNumbers.maxOrNull() ?: 1f
+    val sliderCurrentFloor: Float
+        get() = dominantBuildingState?.currentFloorNumber ?: 1f
+    
+    /**
+     * Returns the name of the dominant building for display.
+     */
+    val sliderBuildingName: String
+        get() = dominantBuildingState?.building?.buildingName ?: ""
 }
 
 /**
  * ViewModel for floor plan rendering.
  * Manages floor plan data loading and canvas state.
- * Supports multiple floors with stacked rendering.
+ * Supports multiple buildings with independent floor states.
  */
+@Suppress("unused") // Contains API methods for future UI buttons
 class FloorPlanViewModel(
     application: Application
 ) : AndroidViewModel(application) {
@@ -71,11 +106,10 @@ class FloorPlanViewModel(
     val uiState: StateFlow<FloorPlanUiState> = _uiState.asStateFlow()
 
     /**
-     * Loads all floors for a building.
-     * @param buildingId The building identifier (e.g., "building_1")
-     * @param floorIds List of floor IDs to load (e.g., ["floor_1", "floor_1.5", "floor_2"])
+     * Loads a building with all its floors.
+     * @param building The building configuration
      */
-    fun loadAllFloors(buildingId: String, floorIds: List<String>) {
+    fun loadBuilding(building: Building) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -83,32 +117,70 @@ class FloorPlanViewModel(
                 val floorsMap = mutableMapOf<Float, FloorPlanData>()
                 val floorNumbers = mutableListOf<Float>()
 
-                for (floorId in floorIds) {
-                    val floorPlanData = repository.loadFloorPlan(buildingId, floorId)
+                for (floorId in building.availableFloors) {
+                    val floorPlanData = repository.loadFloorPlan(building.buildingId, floorId)
                     val floorNumber = extractFloorNumber(floorId)
                     floorsMap[floorNumber] = floorPlanData
                     floorNumbers.add(floorNumber)
                 }
 
                 val sortedFloorNumbers = floorNumbers.sorted()
-                val highestFloor = sortedFloorNumbers.lastOrNull() ?: 1f
+                val lowestFloor = sortedFloorNumbers.firstOrNull() ?: 1f
 
-                _uiState.update {
-                    it.copy(
+                // Create BuildingState for this building
+                val buildingState = BuildingState(
+                    building = building,
+                    floors = floorsMap,
+                    availableFloorNumbers = sortedFloorNumbers,
+                    currentFloorNumber = lowestFloor // Start at lowest floor
+                )
+
+                _uiState.update { currentState ->
+                    val updatedBuildingStates = currentState.buildingStates.toMutableMap()
+                    updatedBuildingStates[building.buildingId] = buildingState
+                    
+                    currentState.copy(
                         isLoading = false,
-                        allFloors = floorsMap,
-                        availableFloorNumbers = sortedFloorNumbers,
-                        currentFloorNumber = highestFloor
+                        buildingStates = updatedBuildingStates,
+                        // Set this as dominant if it's the first/only building
+                        dominantBuildingId = currentState.dominantBuildingId ?: building.buildingId,
+                        showFloorSlider = true
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load floor plans"
+                        error = e.message ?: "Failed to load building: ${building.buildingId}"
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Legacy method: Loads all floors for a building.
+     * Creates a Building object internally for backwards compatibility.
+     */
+    fun loadAllFloors(buildingId: String, floorIds: List<String>) {
+        viewModelScope.launch {
+            // Load metadata to get building name
+            val metadata = try {
+                repository.loadBuildingMetadata(buildingId)
+            } catch (e: Exception) {
+                null
+            }
+            
+            val building = Building(
+                buildingId = buildingId,
+                buildingName = metadata?.buildingName ?: buildingId,
+                availableFloors = floorIds,
+                scale = metadata?.scale ?: 1f,
+                rotation = metadata?.rotation ?: 0f,
+                labelPosition = metadata?.labelPosition
+            )
+            
+            loadBuilding(building)
         }
     }
 
@@ -127,44 +199,105 @@ class FloorPlanViewModel(
     }
 
     /**
-     * Changes the current floor to the specified floor number.
+     * Changes the current floor for a specific building.
+     * @param buildingId The building to update
+     * @param floorNumber The new floor number
+     */
+    fun setCurrentFloor(buildingId: String, floorNumber: Float) {
+        _uiState.update { currentState ->
+            val buildingState = currentState.buildingStates[buildingId] ?: return@update currentState
+            
+            if (floorNumber !in buildingState.availableFloorNumbers) return@update currentState
+            
+            val updatedBuildingState = buildingState.copy(currentFloorNumber = floorNumber)
+            val updatedBuildingStates = currentState.buildingStates.toMutableMap()
+            updatedBuildingStates[buildingId] = updatedBuildingState
+            
+            currentState.copy(buildingStates = updatedBuildingStates)
+        }
+    }
+
+    /**
+     * Changes the current floor for the dominant building.
+     * Used by the floor slider UI.
      */
     fun setCurrentFloor(floorNumber: Float) {
-        val available = _uiState.value.availableFloorNumbers
-        if (floorNumber in available) {
-            _uiState.update { it.copy(currentFloorNumber = floorNumber) }
-        }
+        val dominantBuildingId = _uiState.value.dominantBuildingId ?: return
+        setCurrentFloor(dominantBuildingId, floorNumber)
     }
 
     /**
-     * Moves to the next higher floor if available.
+     * Moves to the next higher floor for the dominant building.
      */
     fun goToNextFloor() {
-        val current = _uiState.value.currentFloorNumber
-        val available = _uiState.value.availableFloorNumbers.sorted()
+        val dominantBuildingId = _uiState.value.dominantBuildingId ?: return
+        val buildingState = _uiState.value.buildingStates[dominantBuildingId] ?: return
+        
+        val current = buildingState.currentFloorNumber
+        val available = buildingState.availableFloorNumbers
         val currentIndex = available.indexOf(current)
+        
         if (currentIndex >= 0 && currentIndex < available.size - 1) {
-            _uiState.update { it.copy(currentFloorNumber = available[currentIndex + 1]) }
+            setCurrentFloor(dominantBuildingId, available[currentIndex + 1])
         }
     }
 
     /**
-     * Moves to the next lower floor if available.
+     * Moves to the next lower floor for the dominant building.
      */
     fun goToPreviousFloor() {
-        val current = _uiState.value.currentFloorNumber
-        val available = _uiState.value.availableFloorNumbers.sorted()
+        val dominantBuildingId = _uiState.value.dominantBuildingId ?: return
+        val buildingState = _uiState.value.buildingStates[dominantBuildingId] ?: return
+        
+        val current = buildingState.currentFloorNumber
+        val available = buildingState.availableFloorNumbers
         val currentIndex = available.indexOf(current)
+        
         if (currentIndex > 0) {
-            _uiState.update { it.copy(currentFloorNumber = available[currentIndex - 1]) }
+            setCurrentFloor(dominantBuildingId, available[currentIndex - 1])
         }
     }
 
     /**
      * Updates canvas state from gesture input.
+     * Also recalculates dominant building based on new viewport.
      */
     fun updateCanvasState(canvasState: CanvasState) {
-        _uiState.update { it.copy(canvasState = canvasState) }
+        _uiState.update { currentState ->
+            val screenWidth = currentState.screenWidth
+            val screenHeight = currentState.screenHeight
+            
+            // Recalculate dominant building based on new viewport
+            val dominantBuildingId = if (screenWidth > 0 && screenHeight > 0) {
+                ViewportUtils.findDominantBuilding(
+                    buildingStates = currentState.buildingStates,
+                    canvasState = canvasState,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight
+                )
+            } else {
+                currentState.dominantBuildingId
+            }
+            
+            val showFloorSlider = ViewportUtils.shouldShowFloorSlider(
+                canvasScale = canvasState.scale,
+                dominantBuildingId = dominantBuildingId
+            )
+            
+            currentState.copy(
+                canvasState = canvasState,
+                dominantBuildingId = dominantBuildingId,
+                showFloorSlider = showFloorSlider
+            )
+        }
+    }
+
+    /**
+     * Updates screen dimensions for viewport calculations.
+     * Should be called when screen size changes.
+     */
+    fun updateScreenSize(width: Float, height: Float) {
+        _uiState.update { it.copy(screenWidth = width, screenHeight = height) }
     }
 
     /**
