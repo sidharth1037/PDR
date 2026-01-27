@@ -1,5 +1,11 @@
 package `in`.project.enroute.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
@@ -21,6 +30,7 @@ import `in`.project.enroute.feature.floorplan.FloorPlanUiState
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
 import `in`.project.enroute.feature.home.components.FloorSlider
 import `in`.project.enroute.feature.home.components.SearchButton
+import `in`.project.enroute.feature.home.components.SearchScreen
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanCanvas
 
 @Composable
@@ -66,6 +76,9 @@ private fun HomeScreenContent(
     onCanvasStateChange: (CanvasState) -> Unit,
     onFloorChange: (Float) -> Unit
 ) {
+    var showSearch by remember { mutableStateOf(false) }
+    var isMorphingToSearch by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -88,32 +101,53 @@ private fun HomeScreenContent(
                 )
 
                 // Floor slider and search button positioned at top, layered over canvas
-                // Use Box to position them independently so SearchButton stays in place
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
                         .padding(top = 8.dp, end = 8.dp, start = 8.dp)
                 ) {
-                    // Floor slider - takes available width except for search button space
-                    FloorSlider(
-                        buildingName = uiState.sliderBuildingName,
-                        availableFloors = uiState.sliderFloorNumbers,
-                        currentFloor = uiState.sliderCurrentFloor,
-                        onFloorChange = onFloorChange,
-                        isVisible = uiState.showFloorSlider,
+                    // Floor slider - animated exit when search button is pressed
+                    AnimatedVisibility(
+                        visible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                        enter = fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it },
+                        exit = fadeOut(tween(300)) + slideOutHorizontally(tween(300)) { -it },
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(end = 56.dp) // Leave space for search button when visible
-                    )
+                            .padding(end = 56.dp)
+                    ) {
+                        FloorSlider(
+                            buildingName = uiState.sliderBuildingName,
+                            availableFloors = uiState.sliderFloorNumbers,
+                            currentFloor = uiState.sliderCurrentFloor,
+                            onFloorChange = onFloorChange,
+                            isVisible = true, // Visibility managed by AnimatedVisibility
+                        )
+                    }
                     
-                    // Search button - fixed at top end
-                    // When slider hides, it expands to fill the full width (maxWidth - horizontal padding)
+                    // Search button
                     SearchButton(
-                        isSliderVisible = uiState.showFloorSlider,
-                        containerWidth = maxWidth - 16.dp, // Accounting for 8dp horizontal padding on Box
-                        modifier = Modifier.align(Alignment.TopEnd)
+                        isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                        isSearching = isMorphingToSearch,
+                        containerWidth = maxWidth - 16.dp,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        onClick = { isMorphingToSearch = true },
+                        onAnimationFinished = {
+                            showSearch = true
+                        }
                     )
+                }
+                
+                // Animated transition for SearchScreen
+                AnimatedVisibility(
+                    visible = showSearch,
+                    enter = fadeIn(tween(300)),
+                    exit = fadeOut(tween(500))
+                ) {
+                    SearchScreen(onBack = { 
+                        showSearch = false 
+                        isMorphingToSearch = false
+                    })
                 }
             }
         }
