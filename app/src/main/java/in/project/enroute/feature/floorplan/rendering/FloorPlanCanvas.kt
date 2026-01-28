@@ -211,7 +211,7 @@ fun FloorPlanCanvas(
 
             // Draw building name when room labels are hidden (low zoom)
             // Building name shows when zoom level is between 0.15 and 0.48
-            if (canvasState.scale >= 0.15f && canvasState.scale < 0.48f && floorsToRender.isNotEmpty()) {
+            if (canvasState.scale in 0.15f..<0.48f && floorsToRender.isNotEmpty()) {
                 val topFloor = floorsToRender.last()
                 drawBuildingName(
                     buildingName = topFloor.metadata.buildingName,

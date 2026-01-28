@@ -97,9 +97,21 @@ private fun FloorSliderContent(
     currentFloor: Float,
     onFloorChange: (Float) -> Unit
 ) {
-    // Use safe defaults if list is empty (can happen briefly during exit animation)
-    val safeFloors = if (availableFloors.size >= 2) availableFloors.sorted() else listOf(0f, 1f)
-    val safeCurrentFloor = if (availableFloors.contains(currentFloor)) currentFloor else safeFloors.first()
+    // Hold onto the last valid building name and floors during exit animations
+    // to prevent UI elements from disappearing before the transition finishes.
+    var lastValidBuildingName by remember { mutableStateOf(buildingName) }
+    if (buildingName.isNotEmpty()) {
+        lastValidBuildingName = buildingName
+    }
+
+    var lastValidFloors by remember { mutableStateOf(availableFloors) }
+    if (availableFloors.size >= 2) {
+        lastValidFloors = availableFloors
+    }
+
+    // Use stable defaults to ensure consistency during animations
+    val safeFloors = lastValidFloors.sorted()
+    val safeCurrentFloor = if (lastValidFloors.contains(currentFloor)) currentFloor else safeFloors.firstOrNull() ?: 0f
     
     // Find current floor index and adjacent floors
     val currentIndex = safeFloors.indexOf(safeCurrentFloor).coerceAtLeast(0)
@@ -124,9 +136,9 @@ private fun FloorSliderContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Building name at top (no floor number)
-        if (buildingName.isNotEmpty()) {
+        if (lastValidBuildingName.isNotEmpty()) {
             Text(
-                text = buildingName,
+                text = lastValidBuildingName,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,

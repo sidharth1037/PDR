@@ -16,4 +16,7 @@ data class StairLine(
     val stairPolygonId: Int,
     @SerializedName("floors_connected")
     val floorsConnected: List<Float> = emptyList()
+    ,
+    // Optional position information found in the updated JSON (e.g. "top" / "bottom")
+    val position: String? = null
 )

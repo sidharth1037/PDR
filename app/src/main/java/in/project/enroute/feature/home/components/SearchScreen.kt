@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
@@ -122,6 +123,7 @@ fun SearchScreen(
                                 onValueChange = { query.value = it },
                                 singleLine = true,
                                 textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onPrimaryContainer),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.onBackground),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .focusRequester(focusRequester)

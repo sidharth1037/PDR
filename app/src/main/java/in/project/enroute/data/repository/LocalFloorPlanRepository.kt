@@ -89,11 +89,14 @@ class LocalFloorPlanRepository(
             groupedByPolygonId.map { (polygonId, lines) ->
                 val floorsConnected = lines.firstOrNull()?.floorsConnected ?: emptyList()
                 val orderedPoints = buildOrderedPolygon(lines)
+                val positions = lines.mapNotNull { it.position }.distinct()
 
                 Stairwell(
                     polygonId = polygonId,
                     points = orderedPoints,
-                    floorsConnected = floorsConnected
+                    floorsConnected = floorsConnected,
+                    positions = positions,
+                    lines = lines
                 )
             }
         } catch (e: Exception) {
@@ -204,7 +207,7 @@ class LocalFloorPlanRepository(
      * Loads boundary polygons from JSON file.
      * Supports multiple polygons per floor (e.g., separate building sections).
      */
-    private fun loadBoundaryPolygons(fileName: String): List<BoundaryPolygon> {
+    private fun  loadBoundaryPolygons(fileName: String): List<BoundaryPolygon> {
         return try {
             val inputStream = context.assets.open(fileName)
             val reader = InputStreamReader(inputStream)
