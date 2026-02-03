@@ -362,9 +362,19 @@ class FloorPlanViewModel(
             val currentState = _uiState.value
             val target = CanvasTarget(x = x, y = y, scale = scale)
             
+            // Get current floor plan metadata for transformations
+            val dominantBuildingState = currentState.dominantBuildingState
+            val currentFloorNumber = dominantBuildingState?.currentFloorNumber ?: 1f
+            val currentFloorData = dominantBuildingState?.floors?.get(currentFloorNumber)
+            
+            val floorPlanScale = currentFloorData?.metadata?.scale ?: 1f
+            val floorPlanRotation = currentFloorData?.metadata?.rotation ?: 0f
+            
             CanvasAnimator.animateToTarget(
                 currentState = currentState.canvasState,
                 target = target,
+                floorPlanScale = floorPlanScale,
+                floorPlanRotation = floorPlanRotation,
                 screenWidth = currentState.screenWidth,
                 screenHeight = currentState.screenHeight,
                 config = animationConfig,

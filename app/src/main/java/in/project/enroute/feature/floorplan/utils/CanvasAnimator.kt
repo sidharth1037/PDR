@@ -2,6 +2,8 @@ package `in`.project.enroute.feature.floorplan.utils
 
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
 import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Configuration for canvas animation behavior.
@@ -36,10 +38,20 @@ object CanvasAnimator {
     
     /**
      * Calculates the canvas offset needed to center a world coordinate on screen.
+     * Takes both canvas rotation and floor plan transformations into account.
      *
-     * @param targetX The x coordinate in world/canvas space to center
-     * @param targetY The y coordinate in world/canvas space to center
-     * @param scale The zoom scale
+     * The FloorPlanCanvas applies transformations in this order:
+     * 1. Raw floor plan coordinates are scaled by floorPlanScale
+     * 2. Rotated by floorPlanRotation
+     * 3. Drawn at (transformed_x + centerX, transformed_y + centerY) due to inner translate
+     * 4. Canvas graphicsLayer applies: scale -> rotate -> translate around origin (0,0)
+     *
+     * @param targetX The x coordinate in raw floor plan space to center
+     * @param targetY The y coordinate in raw floor plan space to center
+     * @param canvasScale The canvas zoom scale
+     * @param canvasRotation The canvas rotation in degrees
+     * @param floorPlanScale The floor plan's metadata scale factor
+     * @param floorPlanRotation The floor plan's metadata rotation in degrees
      * @param screenWidth The screen width in pixels
      * @param screenHeight The screen height in pixels
      * @return Pair of (offsetX, offsetY) needed to center the target
@@ -47,15 +59,48 @@ object CanvasAnimator {
     fun calculateCenterOffset(
         targetX: Float,
         targetY: Float,
-        scale: Float,
+        canvasScale: Float,
+        canvasRotation: Float,
+        floorPlanScale: Float,
+        floorPlanRotation: Float,
         screenWidth: Float,
         screenHeight: Float
     ): Pair<Float, Float> {
-        // To center a point, we need:
-        // screenCenter = targetPoint * scale + offset
-        // offset = screenCenter - targetPoint * scale
-        val offsetX = (screenWidth / 2f) - (targetX * scale)
-        val offsetY = (screenHeight / 2f) - (targetY * scale)
+        val centerX = screenWidth / 2f
+        val centerY = screenHeight / 2f
+        
+        // Step 1: Apply floor plan transformations (scale then rotate)
+        val fpScaledX = targetX * floorPlanScale
+        val fpScaledY = targetY * floorPlanScale
+        
+        val fpRotationRad = Math.toRadians(floorPlanRotation.toDouble())
+        val fpCos = cos(fpRotationRad).toFloat()
+        val fpSin = sin(fpRotationRad).toFloat()
+        
+        val fpTransformedX = fpScaledX * fpCos - fpScaledY * fpSin
+        val fpTransformedY = fpScaledX * fpSin + fpScaledY * fpCos
+        
+        // Step 2: Add inner translate offset (drawing origin shift to center)
+        val localX = fpTransformedX + centerX
+        val localY = fpTransformedY + centerY
+        
+        // Step 3: Apply canvas graphicsLayer transforms (scale -> rotate -> translate)
+        val canvasRotationRad = Math.toRadians(canvasRotation.toDouble())
+        val canvasCos = cos(canvasRotationRad).toFloat()
+        val canvasSin = sin(canvasRotationRad).toFloat()
+        
+        // Canvas scale around origin (0, 0)
+        val canvasScaledX = localX * canvasScale
+        val canvasScaledY = localY * canvasScale
+        
+        // Canvas rotation around origin (0, 0)
+        val canvasRotatedX = canvasScaledX * canvasCos - canvasScaledY * canvasSin
+        val canvasRotatedY = canvasScaledX * canvasSin + canvasScaledY * canvasCos
+        
+        // Step 4: Calculate offset to center the point on screen
+        val offsetX = centerX - canvasRotatedX
+        val offsetY = centerY - canvasRotatedY
+        
         return Pair(offsetX, offsetY)
     }
     
@@ -98,6 +143,8 @@ object CanvasAnimator {
     suspend fun animateToTarget(
         currentState: CanvasState,
         target: CanvasTarget,
+        floorPlanScale: Float,
+        floorPlanRotation: Float,
         screenWidth: Float,
         screenHeight: Float,
         config: CanvasAnimationConfig = CanvasAnimationConfig(),
@@ -106,7 +153,10 @@ object CanvasAnimator {
         val (targetOffsetX, targetOffsetY) = calculateCenterOffset(
             targetX = target.x,
             targetY = target.y,
-            scale = target.scale,
+            canvasScale = target.scale,
+            canvasRotation = currentState.rotation,
+            floorPlanScale = floorPlanScale,
+            floorPlanRotation = floorPlanRotation,
             screenWidth = screenWidth,
             screenHeight = screenHeight
         )
