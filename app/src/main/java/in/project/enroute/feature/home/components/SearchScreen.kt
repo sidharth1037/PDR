@@ -169,19 +169,18 @@ fun SearchScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 items(searchResults.value) { result ->
                     DestinationButton(
                         coordinates = Pair(result.x, result.y),
                         onNavigate = { x, y ->
-                            onCenterView(x, y, 0.48f)
+                            onCenterView(x, y, 0.84f)
                             onBack()
                         },
                         label = result.label,
+                        roomNumber = result.roomNo,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

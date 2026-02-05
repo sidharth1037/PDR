@@ -1,16 +1,21 @@
 package `in`.project.enroute.feature.home.utils
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
@@ -26,7 +31,8 @@ import java.io.InputStreamReader
 data class SearchResult(
     val x: Float,
     val y: Float,
-    val label: String
+    val label: String?,
+    val roomNo: Int?
 )
 
 /**
@@ -84,48 +90,72 @@ object SearchCache {
 }
 
 /**
- * Searches for rooms by a query string using prefix matching on room labels.
+ * Searches for rooms by a query string using prefix matching on room labels or numbers.
  * Results are cached on first load to avoid re-reading JSON files on subsequent calls.
+ * If query is numeric, searches by room number. If query is string, searches by label.
  * 
  * @param context Android context for asset access
  * @param floorId Floor identifier to search (e.g., "floor_1")
- * @param query Search query string - performs case-insensitive prefix match on room labels
- * @return List of SearchResult objects matching the query, sorted by label
+ * @param query Search query string - performs case-insensitive prefix match on room labels or exact match on room numbers
+ * @return List of SearchResult objects matching the query, sorted by room number or label
  */
 fun search(context: Context, floorId: String, query: String): List<SearchResult> {
     if (query.isBlank()) return emptyList()
     
     val rooms = SearchCache.getRooms(context, floorId)
-    val normalizedQuery = query.trim().lowercase()
+    val normalizedQuery = query.trim()
+    val isNumericQuery = normalizedQuery.all { it.isDigit() }
     
-    return rooms
-        .filter { room ->
-            val label = (room.name ?: room.number?.toString() ?: "").lowercase()
-            label.startsWith(normalizedQuery)
-        }
-        .map { room ->
-            SearchResult(
-                x = room.x,
-                y = room.y,
-                label = room.name ?: room.number?.toString() ?: "Unknown"
-            )
-        }
-        .sortedBy { it.label }
+    return if (isNumericQuery) {
+        // Search and sort by room number
+        val queryNumber = normalizedQuery.toIntOrNull()
+        rooms
+            .filter { room ->
+                room.number?.toString()?.startsWith(normalizedQuery) ?: false
+            }
+            .map { room ->
+                SearchResult(
+                    x = room.x,
+                    y = room.y,
+                    label = room.name,
+                    roomNo = room.number
+                )
+            }
+            .sortedBy { it.roomNo ?: Int.MAX_VALUE }
+    } else {
+        // Search and sort by label (name)
+        rooms
+            .filter { room ->
+                val label = (room.name ?: "").lowercase()
+                label.startsWith(normalizedQuery.lowercase())
+            }
+            .map { room ->
+                SearchResult(
+                    x = room.x,
+                    y = room.y,
+                    label = room.name,
+                    roomNo = room.number
+                )
+            }
+            .sortedBy { it.label ?: "" }
+    }
 }
 
 /**
- * Searches for rooms across all available floors using prefix matching on room labels.
+ * Searches for rooms across all available floors using prefix matching on room labels or numbers.
  * Results are cached on first load to avoid re-reading JSON files on subsequent calls.
  * Automatically discovers all room JSON files in assets (files ending with _rooms.json).
+ * If query is numeric, searches by room number. If query is string, searches by label.
  * 
  * @param context Android context for asset access
- * @param query Search query string - performs case-insensitive prefix match on room labels
- * @return List of SearchResult objects matching the query from all floors, sorted by label
+ * @param query Search query string - performs case-insensitive prefix match on room labels or room numbers
+ * @return List of SearchResult objects matching the query from all floors, sorted by room number or label
  */
 fun searchMultiFloor(context: Context, query: String): List<SearchResult> {
     if (query.isBlank()) return emptyList()
     
-    val normalizedQuery = query.trim().lowercase()
+    val normalizedQuery = query.trim()
+    val isNumericQuery = normalizedQuery.all { it.isDigit() }
     val allResults = mutableListOf<SearchResult>()
     
     // Dynamically discover all room JSON files in assets
@@ -137,54 +167,102 @@ fun searchMultiFloor(context: Context, query: String): List<SearchResult> {
         val floorId = fileName.replace("_rooms.json", "")
         
         val rooms = SearchCache.getRooms(context, floorId)
-        rooms
-            .filter { room ->
-                val label = (room.name ?: room.number?.toString() ?: "").lowercase()
-                label.startsWith(normalizedQuery)
-            }
-            .forEach { room ->
-                allResults.add(
-                    SearchResult(
-                        x = room.x,
-                        y = room.y,
-                        label = room.name ?: room.number?.toString() ?: "Unknown"
+        
+        if (isNumericQuery) {
+            // Search and sort by room number
+            rooms
+                .filter { room ->
+                    room.number?.toString()?.startsWith(normalizedQuery) ?: false
+                }
+                .forEach { room ->
+                    allResults.add(
+                        SearchResult(
+                            x = room.x,
+                            y = room.y,
+                            label = room.name,
+                            roomNo = room.number
+                        )
                     )
-                )
-            }
+                }
+        } else {
+            // Search and sort by label (name)
+            rooms
+                .filter { room ->
+                    val label = (room.name ?: "").lowercase()
+                    label.startsWith(normalizedQuery.lowercase())
+                }
+                .forEach { room ->
+                    allResults.add(
+                        SearchResult(
+                            x = room.x,
+                            y = room.y,
+                            label = room.name,
+                            roomNo = room.number
+                        )
+                    )
+                }
+        }
     }
     
-    return allResults.sortedBy { it.label }
+    return if (isNumericQuery) {
+        allResults.sortedBy { it.roomNo ?: Int.MAX_VALUE }
+    } else {
+        allResults.sortedBy { it.label ?: "" }
+    }
 }
 
 /**
  * A button composable that performs an action based on destination coordinates.
  * Typically used to navigate to or highlight a specific location on the floor plan.
+ * Displays both room number and label if available.
  * 
  * @param coordinates Pair of (x, y) coordinates in floor plan space
  * @param onNavigate Callback function called when button is clicked with the coordinates
- * @param label Display text for the button (default: room label or coordinates)
+ * @param label Display text for the button (room name/label)
+ * @param roomNumber Room number to display (optional)
  * @param modifier Modifier for the button
  */
 @Composable
 fun DestinationButton(
     coordinates: Pair<Float, Float>,
     onNavigate: (x: Float, y: Float) -> Unit,
-    label: String = "Navigate",
+    label: String? = null,
+    roomNumber: Int? = null,
     modifier: Modifier = Modifier
 ) {
-    Button(
-        onClick = {
+    val displayText = buildString {
+        roomNumber?.let { append(" $it") }
+        if (roomNumber != null && label != null) append(" : ")
+        label?.let { append(it) }
+        if (isEmpty()) append("Navigate")
+    }
+    
+    Box(
+        modifier = modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() }
+        ) {
             onNavigate(coordinates.first, coordinates.second)
-        },
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(8.dp),
-        interactionSource = remember { MutableInteractionSource() }
+        }
     ) {
-        Icon(
-            imageVector = Icons.Filled.LocationOn,
-            contentDescription = "Navigate to destination",
-            modifier = Modifier.padding(end = 8.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.LocationOn,
+                contentDescription = "Navigate to destination",
+                modifier = Modifier
+                    .size(25.dp)
+                    .padding(end = 8.dp)
+            )
+            Text(text = displayText)
+        }
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth(fraction = 0.85f)
+                .align(Alignment.BottomCenter)
         )
-        Text(text = label)
     }
 }
