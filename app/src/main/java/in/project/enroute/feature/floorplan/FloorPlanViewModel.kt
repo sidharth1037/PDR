@@ -13,7 +13,10 @@ import `in`.project.enroute.feature.floorplan.state.BuildingState
 import `in`.project.enroute.feature.floorplan.utils.CanvasAnimationConfig
 import `in`.project.enroute.feature.floorplan.utils.CanvasAnimator
 import `in`.project.enroute.feature.floorplan.utils.CanvasTarget
+import `in`.project.enroute.feature.floorplan.utils.FollowingAnimator
+import `in`.project.enroute.feature.floorplan.utils.FollowingConfig
 import `in`.project.enroute.feature.floorplan.utils.ViewportUtils
+import androidx.compose.ui.geometry.Offset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,7 +61,12 @@ data class FloorPlanUiState(
      * Screen dimensions for viewport calculations
      */
     val screenWidth: Float = 0f,
-    val screenHeight: Float = 0f
+    val screenHeight: Float = 0f,
+    
+    /**
+     * Whether following mode is enabled (canvas follows user position/heading)
+     */
+    val isFollowingMode: Boolean = false
 ) {
     /**
      * Returns the state of the dominant building, if any.
@@ -264,9 +272,12 @@ class FloorPlanViewModel(
     /**
      * Updates canvas state from gesture input.
      * Also recalculates dominant building based on new viewport.
+     * Disables following mode when user manually gestures.
      */
-    fun updateCanvasState(canvasState: CanvasState) {
+    fun updateCanvasState(canvasState: CanvasState, isFromGesture: Boolean = true) {
         _uiState.update { currentState ->
+            // Disable following mode if user manually pans/zooms
+            val newFollowingMode = if (isFromGesture) false else currentState.isFollowingMode
             val screenWidth = currentState.screenWidth
             val screenHeight = currentState.screenHeight
             
@@ -290,8 +301,89 @@ class FloorPlanViewModel(
             currentState.copy(
                 canvasState = canvasState,
                 dominantBuildingId = dominantBuildingId,
-                showFloorSlider = showFloorSlider
+                showFloorSlider = showFloorSlider,
+                isFollowingMode = newFollowingMode
             )
+        }
+    }
+    
+    /**
+     * Enables following mode and centers on the given position.
+     * In following mode, the canvas follows the user's position and rotates
+     * so their heading always points up (like Google Maps navigation).
+     *
+     * @param position User's current position in world coordinates
+     * @param headingRadians User's heading in radians (0 = north, positive = clockwise)
+     * @param scale Zoom level for following mode (default 0.7)
+     */
+    fun enableFollowingMode(
+        position: Offset,
+        headingRadians: Float,
+        scale: Float = 1f
+    ) {
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            
+            val targetState = FollowingAnimator.calculateFollowingState(
+                worldPosition = position,
+                headingRadians = headingRadians,
+                scale = scale,
+                screenWidth = currentState.screenWidth,
+                screenHeight = currentState.screenHeight
+            )
+            
+            // Animate to following position. Mark following mode once animation finishes
+            FollowingAnimator.animateToState(
+                currentState = currentState.canvasState,
+                targetState = targetState,
+                config = FollowingConfig(scale = scale),
+                onStateUpdate = { newState ->
+                    _uiState.update { it.copy(canvasState = newState) }
+                }
+            )
+
+            // Ensure final state and enable following mode after animation completes
+            _uiState.update { it.copy(canvasState = targetState, isFollowingMode = true) }
+        }
+    }
+    
+    /**
+     * Updates the canvas to follow the user's new position/heading.
+     * Only updates if following mode is enabled.
+     * This should be called on each step/heading change.
+     *
+     * @param position User's current position in world coordinates
+     * @param headingRadians User's heading in radians
+     */
+    fun updateFollowingPosition(position: Offset, headingRadians: Float) {
+        val currentState = _uiState.value
+        if (!currentState.isFollowingMode) return
+        
+        val newState = FollowingAnimator.calculateFollowingState(
+            worldPosition = position,
+            headingRadians = headingRadians,
+            scale = currentState.canvasState.scale, // Keep current zoom
+            screenWidth = currentState.screenWidth,
+            screenHeight = currentState.screenHeight
+        )
+        
+        // Update immediately (no animation for smooth following)
+        _uiState.update { it.copy(canvasState = newState) }
+    }
+    
+    /**
+     * Disables following mode and commits the current canvas state.
+     * Pass the current effective canvas state to preserve the user's 
+     * current view position/rotation when exiting following mode.
+     *
+     * @param finalCanvasState The canvas state to commit (typically the current following state)
+     */
+    fun disableFollowingMode(finalCanvasState: CanvasState? = null) {
+        _uiState.update { 
+            it.copy(
+                canvasState = finalCanvasState ?: it.canvasState,
+                isFollowingMode = false
+            ) 
         }
     }
 
@@ -344,11 +436,12 @@ class FloorPlanViewModel(
     }
     
     /**
-     * Animates the canvas to center on a specific coordinate with a target zoom level.
+     * Animates the canvas to center on a specific floor plan coordinate with a target zoom level.
      * Similar to how Google Maps centers on a location.
+     * Maintains the current canvas rotation.
      *
-     * @param x The x coordinate in canvas/world space
-     * @param y The y coordinate in canvas/world space
+     * @param x The x coordinate in floor plan space
+     * @param y The y coordinate in floor plan space
      * @param scale The target zoom scale
      * @param animationConfig Configuration for animation duration and smoothness
      */
@@ -379,7 +472,7 @@ class FloorPlanViewModel(
                 screenHeight = currentState.screenHeight,
                 config = animationConfig,
                 onStateUpdate = { newState ->
-                    updateCanvasState(newState)
+                    updateCanvasState(newState, isFromGesture = false)
                 }
             )
         }

@@ -21,8 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
+import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -188,7 +192,7 @@ private fun FloorTimelineWithControls(
     ) {
         // Minus button
         TimelineButton(
-            text = "−",
+            isForward = false,
             enabled = prevFloor != null,
             onClick = onDecrement,
             primaryColor = primaryColor,
@@ -208,7 +212,7 @@ private fun FloorTimelineWithControls(
         
         // Plus button
         TimelineButton(
-            text = "+",
+            isForward = true,
             enabled = nextFloor != null,
             onClick = onIncrement,
             primaryColor = primaryColor,
@@ -219,7 +223,7 @@ private fun FloorTimelineWithControls(
 
 @Composable
 private fun TimelineButton(
-    text: String,
+    isForward: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     primaryColor: Color,
@@ -247,24 +251,12 @@ private fun TimelineButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(pillWidth, pillHeight)) {
-            val fontSize = 18.sp.toPx()
-            val centerX = size.width / 2
-            val centerY = size.height / 2
-            val textY = centerY + (fontSize / 3)
-            
-            val textColor = if (enabled) onSurfaceColor else inactiveColor
-            val textPaint = android.graphics.Paint().apply {
-                color = textColor.toArgb()
-                textSize = fontSize
-                textAlign = android.graphics.Paint.Align.CENTER
-                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-            }
-            
-            drawIntoCanvas { canvas ->
-                canvas.nativeCanvas.drawText(text, centerX, textY, textPaint)
-            }
-        }
+        Icon(
+            imageVector = if (isForward) Icons.AutoMirrored.Rounded.ArrowForwardIos else Icons.AutoMirrored.Rounded.ArrowBackIos,
+            contentDescription = if (isForward) "Next floor" else "Previous floor",
+            tint = if (enabled) onSurfaceColor else inactiveColor,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

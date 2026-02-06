@@ -35,9 +35,9 @@ fun OriginSelectionDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
@@ -48,7 +48,7 @@ fun OriginSelectionDialog(
                 Text(
                     text = "Set Origin Point",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -56,7 +56,7 @@ fun OriginSelectionDialog(
                 Text(
                     text = "Choose how to set your starting position",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -65,7 +65,11 @@ fun OriginSelectionDialog(
                 Button(
                     onClick = onSelectPoint,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.background
+                    )
                 ) {
                     Text("Tap on Map")
                 }
@@ -76,8 +80,11 @@ fun OriginSelectionDialog(
                 OutlinedButton(
                     onClick = onSelectLocation,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = false // TODO: Enable when location selection is implemented
+                    shape = RoundedCornerShape(24.dp),
+                    enabled = false, // TODO: Enable when location selection is implemented
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 ) {
                     Text("Select Location (Coming Soon)")
                 }
@@ -92,8 +99,10 @@ fun OriginSelectionDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.background
+                        ),
+                        shape = RoundedCornerShape(24.dp)
                     ) {
                         Text("Cancel")
                     }
@@ -115,9 +124,9 @@ fun OriginSelectionOverlay(
     Surface(
         modifier = modifier
             .padding(16.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-        tonalElevation = 4.dp
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -132,11 +141,13 @@ fun OriginSelectionOverlay(
             
             Spacer(modifier = Modifier.width(12.dp))
             
-            OutlinedButton(
+            Button(
                 onClick = onCancel,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.background
+                ),
+                shape = RoundedCornerShape(24.dp)
             ) {
                 Text("Cancel")
             }

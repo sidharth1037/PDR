@@ -34,9 +34,10 @@ data class FloorPlanDisplayConfig(
     val showEntrances: Boolean = true,
     val showRoomLabels: Boolean = true,
     val wallColor: Color = Color.Black,
-    val stairwellColor: Color = Color(0xFFADD8E6),
     val backgroundColor: Color = Color.White,
-    val boundaryColor: Color = Color(0xFFF5F5F5)
+    val boundaryColor: Color = Color(0xFFF5F5F5),
+    val minZoom: Float = 0.15f,
+    val maxZoom: Float = 2.2f
 )
 
 /**
@@ -96,7 +97,7 @@ fun FloorPlanCanvas(
                     }
 
                     val oldScale = state.scale
-                    val newScale = (state.scale * effectiveZoom).coerceIn(0.1f, 10f)
+                    val newScale = (state.scale * effectiveZoom).coerceIn(displayConfig.minZoom, displayConfig.maxZoom)
                     val actualZoom = newScale / oldScale
 
                     // Calculate offset relative to centroid
@@ -157,14 +158,12 @@ fun FloorPlanCanvas(
                     color = displayConfig.boundaryColor
                 )
 
-                // Draw stairwells with auto-generated light color based on floor number
+                // Draw stairwells
                 if (displayConfig.showStairwells) {
-                    val stairwellColor = getFloorStairwellColor(floorData.floorId)
                     drawStairwells(
                         stairwells = floorData.stairwells,
                         scale = floorPlanScale,
-                        rotationDegrees = floorPlanRotation,
-                        color = stairwellColor
+                        rotationDegrees = floorPlanRotation
                     )
                 }
 
@@ -211,7 +210,7 @@ fun FloorPlanCanvas(
 
             // Draw building name when room labels are hidden (low zoom)
             // Building name shows when zoom level is between 0.15 and 0.48
-            if (canvasState.scale in 0.15f..<0.48f && floorsToRender.isNotEmpty()) {
+            if (canvasState.scale in 0.18f..<0.48f && floorsToRender.isNotEmpty()) {
                 val topFloor = floorsToRender.last()
                 drawBuildingName(
                     buildingName = topFloor.metadata.buildingName,
@@ -227,43 +226,6 @@ fun FloorPlanCanvas(
 }
 
 
-
-/**
- * Generates a unique light color for each floor based on floor number.
- * Cycles through a palette of light colors.
- */
-private fun getFloorStairwellColor(floorId: String): Color {
-    // Extract floor number from floorId (e.g., "floor_1" -> 1, "floor_1.5" -> 1.5)
-    val floorNumber = floorId.removePrefix("floor_").toFloatOrNull() ?: 1f
-    
-    // Palette of light colors
-    val lightColors = listOf(
-        "#FFB6C1", // Light pink
-        "#B0E0E6", // Powder blue
-        "#90EE90", // Light green
-        "#FFE4B5", // Moccasin (light orange)
-        "#DDA0DD", // Plum
-        "#98D8C8", // Mint
-        "#F7DC6F", // Light yellow
-        "#BB8FCE"  // Light purple
-    )
-    
-    // Use floor number to index into palette
-    val index = (floorNumber * 10).toInt() % lightColors.size
-    return parseHexColor(lightColors[index])
-}
-
-/**
- * Parses a hex color string (e.g., "#FFB6C1" or "#ADD8E6") to a Color object.
- */
-private fun parseHexColor(hexColor: String): Color {
-    return try {
-        val hex = hexColor.removePrefix("#")
-        Color(hex.toLong(16) or 0xFF000000)
-    } catch (e: Exception) {
-        Color(0xFFADD8E6) // Fallback to light blue
-    }
-}
 
 /**
  * Filters rooms to only include those not covered by floors above.

@@ -60,6 +60,9 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     
+    // Track pending navigation to delay it until keyboard is hidden
+    val pendingNavigation = remember { mutableStateOf<Pair<Float, Float>?>(null) }
+    
     // Search across all available floors when query changes
     LaunchedEffect(query.value) {
         searchResults.value = searchMultiFloor(
@@ -73,6 +76,18 @@ fun SearchScreen(
         // A small delay ensures the transition is underway or finished before requesting focus.
         delay(100)
         focusRequester.requestFocus()
+    }
+
+    // Handle delayed navigation after keyboard is hidden
+    LaunchedEffect(pendingNavigation.value) {
+        if (pendingNavigation.value != null) {
+            // Wait for keyboard hide animation (approximately 150ms)
+            delay(150)
+            val (x, y) = pendingNavigation.value!!
+            onCenterView(x, y, 1.2f)
+            onBack()
+            pendingNavigation.value = null
+        }
     }
 
     Column(
@@ -176,8 +191,10 @@ fun SearchScreen(
                     DestinationButton(
                         coordinates = Pair(result.x, result.y),
                         onNavigate = { x, y ->
-                            onCenterView(x, y, 0.84f)
-                            onBack()
+                            // Hide keyboard immediately
+                            focusManager.clearFocus()
+                            // Schedule navigation after keyboard hide animation completes
+                            pendingNavigation.value = Pair(x, y)
                         },
                         label = result.label,
                         roomNumber = result.roomNo,

@@ -53,6 +53,10 @@ class PdrViewModel(application: Application) : AndroidViewModel(application) {
             currentHeading = heading
             repository.updateHeading(heading)
         }
+        
+        // Start heading detector immediately for compass functionality
+        // (step detector only starts when tracking begins)
+        headingDetector.start()
 
         // Set up step detector callback
         stepDetector.onStepDetected = { stepIntervalMs ->
@@ -134,26 +138,27 @@ class PdrViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Starts the heading and step sensors.
+     * Starts the step detector sensor.
+     * Heading detector is always running for compass functionality.
      * Called internally when origin is set.
      */
     private fun startSensors() {
-        headingDetector.start()
         stepDetector.start()
     }
 
     /**
-     * Stops all sensors.
-     * Called internally when clearing, and also on ViewModel destruction.
+     * Stops the step detector sensor.
+     * Heading detector keeps running for compass.
+     * Called internally when clearing tracking.
      */
     private fun stopSensors() {
-        headingDetector.stop()
         stepDetector.stop()
     }
 
     override fun onCleared() {
         super.onCleared()
-        // Clean up sensors when ViewModel is destroyed
-        stopSensors()
+        // Clean up all sensors when ViewModel is destroyed
+        headingDetector.stop()
+        stepDetector.stop()
     }
 }

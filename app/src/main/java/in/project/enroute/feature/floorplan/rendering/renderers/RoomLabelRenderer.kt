@@ -21,7 +21,7 @@ fun DrawScope.drawRoomLabels(
     canvasScale: Float,
     canvasRotation: Float,
     textColor: Int = android.graphics.Color.DKGRAY,
-    textSize: Float = 28f
+    textSize: Float = 30f
 ) {
     // Don't render labels if zoom level is too low
     if (canvasScale < 0.48f) {

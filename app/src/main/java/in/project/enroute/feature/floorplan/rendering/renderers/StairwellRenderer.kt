@@ -18,8 +18,7 @@ import kotlin.math.sqrt
 fun DrawScope.drawStairwells(
     stairwells: List<Stairwell>,
     scale: Float,
-    rotationDegrees: Float,
-    color: Color = Color(0xFFADD8E6) // Light blue
+    rotationDegrees: Float
 ) {
     val angleRad = Math.toRadians(rotationDegrees.toDouble()).toFloat()
     val cosAngle = cos(angleRad)

@@ -85,16 +85,24 @@ fun PdrPathOverlay(
                     0.8f
                 }
                 
+                // Small lateral offset to separate left and right feet
+                val lateralOffset = 5f // Distance between left and right foot
+                
                 withTransform({
                     // 1. Move to the step location
                     translate(left = point.x, top = point.y)
                     // 2. Rotate to face heading direction
                     rotate(degrees = headingDegrees, pivot = Offset.Zero)
-                    // 3. Mirror for left foot (scale around center, i.e., Offset.Zero after translate)
+                    // 3. Apply lateral offset BEFORE mirroring
+                    // Right foot: offset to the right (+x in rotated space)
+                    // Left foot: offset to the left (-x in rotated space, but becomes +x after mirroring)
+                    val xOffset = if (isRightFoot) lateralOffset else -lateralOffset
+                    translate(left = xOffset, top = 0f)
+                    // 4. Mirror for left foot (scale around center, i.e., Offset.Zero after translate)
                     if (!isRightFoot) {
                         scale(scaleX = -1f, scaleY = 1f, pivot = Offset.Zero)
                     }
-                    // 4. Offset to center the footstep image
+                    // 5. Offset to center the footstep image
                     translate(left = -halfSize, top = -halfSize)
                 }) {
                     with(footstepPainter) {

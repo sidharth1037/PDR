@@ -132,9 +132,12 @@ object CanvasAnimator {
     /**
      * Animates the canvas from current state to center on a target coordinate.
      * This is a suspend function that should be called from a coroutine.
+     * Maintains the current canvas rotation (does not animate rotation).
      *
      * @param currentState The current canvas state
      * @param target The target position and scale
+     * @param floorPlanScale The floor plan's metadata scale factor
+     * @param floorPlanRotation The floor plan's metadata rotation in degrees
      * @param screenWidth Screen width in pixels
      * @param screenHeight Screen height in pixels
      * @param config Animation configuration
@@ -150,11 +153,14 @@ object CanvasAnimator {
         config: CanvasAnimationConfig = CanvasAnimationConfig(),
         onStateUpdate: (CanvasState) -> Unit
     ) {
+        // Keep current rotation - don't animate rotation changes
+        val targetRotation = currentState.rotation
+        
         val (targetOffsetX, targetOffsetY) = calculateCenterOffset(
             targetX = target.x,
             targetY = target.y,
             canvasScale = target.scale,
-            canvasRotation = currentState.rotation,
+            canvasRotation = targetRotation,
             floorPlanScale = floorPlanScale,
             floorPlanRotation = floorPlanRotation,
             screenWidth = screenWidth,
@@ -165,7 +171,7 @@ object CanvasAnimator {
             scale = target.scale,
             offsetX = targetOffsetX,
             offsetY = targetOffsetY,
-            rotation = currentState.rotation // Keep current rotation
+            rotation = targetRotation
         )
         
         val startTime = System.currentTimeMillis()

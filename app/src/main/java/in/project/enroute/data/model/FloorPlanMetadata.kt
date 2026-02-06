@@ -20,8 +20,6 @@ data class FloorPlanMetadata(
     val floorId: String,
     val scale: Float,
     val rotation: Float,
-    @SerializedName("stairwell_color")
-    val stairwellColor: String = "#ADD8E6", // Light blue by default
     @SerializedName("building_name")
     val buildingName: String = "",
     @SerializedName("label_position")

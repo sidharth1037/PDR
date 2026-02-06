@@ -14,14 +14,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import `in`.project.enroute.feature.floorplan.utils.FollowingAnimator
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,14 +36,16 @@ import `in`.project.enroute.feature.home.components.FloorSlider
 import `in`.project.enroute.feature.home.components.SearchButton
 import `in`.project.enroute.feature.home.components.SearchScreen
 import `in`.project.enroute.feature.home.components.AimButton
+import `in`.project.enroute.feature.home.components.CompassButton
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanCanvas
 import `in`.project.enroute.feature.pdr.PdrViewModel
 import `in`.project.enroute.feature.pdr.PdrUiState
 import `in`.project.enroute.feature.pdr.ui.components.OriginSelectionDialog
 import `in`.project.enroute.feature.pdr.ui.components.OriginSelectionOverlay
 import `in`.project.enroute.feature.pdr.ui.components.OriginSelectionTapHandler
-import `in`.project.enroute.feature.pdr.ui.components.PdrDebugButtons
 import `in`.project.enroute.feature.pdr.ui.components.PdrPathOverlay
+import `in`.project.enroute.feature.home.components.SetLocationButton
+import `in`.project.enroute.feature.home.components.StopTrackingButton
 
 @Composable
 fun HomeScreen(
@@ -48,6 +54,7 @@ fun HomeScreen(
 ) {
     val uiState by floorPlanViewModel.uiState.collectAsState()
     val pdrUiState by pdrViewModel.uiState.collectAsState()
+    val view = LocalView.current
 
     // Load all floors on first composition
     LaunchedEffect(Unit) {
@@ -55,6 +62,18 @@ fun HomeScreen(
             "building_1", 
             listOf("floor_1", "floor_1.5", "floor_2", "floor_2.5")
         )
+    }
+
+    // Keep screen on when PDR tracking is active
+    DisposableEffect(pdrUiState.pdrState.isTracking) {
+        if (pdrUiState.pdrState.isTracking) {
+            view.keepScreenOn = true
+        }
+        onDispose {
+            if (!pdrUiState.pdrState.isTracking) {
+                view.keepScreenOn = false
+            }
+        }
     }
 
     // Use BoxWithConstraints to get screen dimensions for viewport calculations
@@ -69,18 +88,54 @@ fun HomeScreen(
             floorPlanViewModel.updateScreenSize(screenWidth, screenHeight)
         }
 
+        // Compute effective canvas state for following mode inline during composition.
+        // This ensures FloorPlanCanvas and PdrPathOverlay see the same state in the same frame,
+        // eliminating the brief cone flash at new step positions.
+        val effectiveCanvasState by remember(
+            uiState.isFollowingMode,
+            uiState.canvasState,
+            pdrUiState.pdrState.path,
+            pdrUiState.pdrState.heading,
+            screenWidth,
+            screenHeight
+        ) {
+            derivedStateOf {
+                if (uiState.isFollowingMode && pdrUiState.pdrState.path.isNotEmpty()) {
+                    val currentPosition = pdrUiState.pdrState.path.last().position
+                    FollowingAnimator.calculateFollowingState(
+                        worldPosition = currentPosition,
+                        headingRadians = pdrUiState.pdrState.heading,
+                        scale = uiState.canvasState.scale,
+                        screenWidth = screenWidth,
+                        screenHeight = screenHeight
+                    )
+                } else {
+                    uiState.canvasState
+                }
+            }
+        }
+
         // Delegate to content composable
         HomeScreenContent(
             uiState = uiState,
             pdrUiState = pdrUiState,
+            effectiveCanvasState = effectiveCanvasState,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
             maxWidth = maxWidth,
             onCanvasStateChange = { floorPlanViewModel.updateCanvasState(it) },
             onFloorChange = { floorPlanViewModel.setCurrentFloor(it) },
             onCenterView = { x, y, scale -> floorPlanViewModel.centerOnCoordinate(x, y, scale) },
+            onEnableTracking = { position, heading ->
+                // Use ViewModel default following zoom unless caller specifies otherwise
+                floorPlanViewModel.enableFollowingMode(position, heading)
+            },
             onSetOriginClick = { pdrViewModel.startOriginSelection() },
-            onClearPdrClick = { pdrViewModel.clearAndStop() },
+            onClearPdrClick = {
+                // Commit current following position before clearing PDR
+                floorPlanViewModel.disableFollowingMode(effectiveCanvasState)
+                pdrViewModel.clearAndStop()
+            },
             onOriginSelected = { pdrViewModel.setOrigin(it) },
             onCancelOriginSelection = { pdrViewModel.cancelOriginSelection() }
         )
@@ -91,12 +146,14 @@ fun HomeScreen(
 private fun HomeScreenContent(
     uiState: FloorPlanUiState,
     pdrUiState: PdrUiState,
+    effectiveCanvasState: CanvasState,
     screenWidth: Float,
     screenHeight: Float,
     maxWidth: Dp,
     onCanvasStateChange: (CanvasState) -> Unit,
     onFloorChange: (Float) -> Unit,
     onCenterView: (x: Float, y: Float, scale: Float) -> Unit,
+    onEnableTracking: (position: androidx.compose.ui.geometry.Offset, headingRadians: Float) -> Unit,
     onSetOriginClick: () -> Unit,
     onClearPdrClick: () -> Unit,
     onOriginSelected: (androidx.compose.ui.geometry.Offset) -> Unit,
@@ -105,6 +162,12 @@ private fun HomeScreenContent(
     var showSearch by remember { mutableStateOf(false) }
     var isMorphingToSearch by remember { mutableStateOf(false) }
     var showOriginDialog by remember { mutableStateOf(false) }
+    var aimPressed by remember { mutableStateOf(false) }
+
+    // Reset local pressed state when following mode is turned off so button reappears
+    LaunchedEffect(uiState.isFollowingMode) {
+        if (!uiState.isFollowingMode) aimPressed = false
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -121,55 +184,83 @@ private fun HomeScreenContent(
                 // Floor plan canvas filling entire screen
                 FloorPlanCanvas(
                     floorsToRender = uiState.allFloorsToRender,
-                    canvasState = uiState.canvasState,
+                    canvasState = effectiveCanvasState,
                     onCanvasStateChange = onCanvasStateChange,
                     displayConfig = uiState.displayConfig,
                     modifier = Modifier.fillMaxSize()
                 )
 
                 // Floor slider and search button positioned at top, layered over canvas
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .padding(top = 8.dp, end = 8.dp, start = 8.dp)
-                ) {
-                    // Floor slider - animated exit when search button is pressed
-                    AnimatedVisibility(
-                        visible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
-                        enter = fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it },
-                        exit = fadeOut(tween(300)) + slideOutHorizontally(tween(300)) { -it },
+                // Hidden during origin selection mode
+                if (!pdrUiState.isSelectingOrigin) {
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(end = 56.dp)
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(top = 8.dp, end = 8.dp, start = 8.dp)
                     ) {
-                        FloorSlider(
-                            buildingName = uiState.sliderBuildingName,
-                            availableFloors = uiState.sliderFloorNumbers,
-                            currentFloor = uiState.sliderCurrentFloor,
-                            onFloorChange = onFloorChange,
-                            isVisible = true, // Visibility managed by AnimatedVisibility
+                        // Floor slider - animated exit when search button is pressed
+                        AnimatedVisibility(
+                            visible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                            enter = fadeIn(tween(300)) + slideInHorizontally(tween(300)) { -it },
+                            exit = fadeOut(tween(300)) + slideOutHorizontally(tween(300)) { -it },
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(end = 56.dp)
+                        ) {
+                            FloorSlider(
+                                buildingName = uiState.sliderBuildingName,
+                                availableFloors = uiState.sliderFloorNumbers,
+                                currentFloor = uiState.sliderCurrentFloor,
+                                onFloorChange = onFloorChange,
+                                isVisible = true, // Visibility managed by AnimatedVisibility
+                            )
+                        }
+                        
+                        // Search button
+                        SearchButton(
+                            isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                            isSearching = isMorphingToSearch,
+                            containerWidth = maxWidth - 16.dp,
+                            modifier = Modifier.align(Alignment.TopEnd),
+                            onClick = { isMorphingToSearch = true },
+                            onAnimationFinished = {
+                                showSearch = true
+                            }
+                        )
+                        
+                        // Compass button positioned at top right, below search button
+                        // Always shows north direction, rotates with device heading
+                        CompassButton(
+                            headingRadians = pdrUiState.pdrState.heading,
+                            onClick = { /* TODO: Could reset canvas rotation to north-up */ },
+                            isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                            isSearching = isMorphingToSearch,
+                            modifier = Modifier.align(Alignment.TopEnd)
                         )
                     }
-                    
-                    // Search button
-                    SearchButton(
-                        isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
-                        isSearching = isMorphingToSearch,
-                        containerWidth = maxWidth - 16.dp,
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        onClick = { isMorphingToSearch = true },
-                        onAnimationFinished = {
-                            showSearch = true
-                        }
-                    )
                 }
                 
                 // Aim button positioned at bottom right
+                // Hidden during origin selection mode or when following is enabled
+                // Shows origin dialog if origin not set, otherwise enables following mode
                 AimButton(
+                    isVisible = !pdrUiState.isSelectingOrigin && !uiState.isFollowingMode && !aimPressed,
                     onClick = {
-                        // Center view on hardcoded coordinate
-                        onCenterView(1338f, 1328f, 0.48f)
+                        if (pdrUiState.pdrState.origin == null) {
+                            // Show origin selection dialog if origin not set
+                            showOriginDialog = true
+                        } else {
+                            // Hide immediately on press only when we actually enter following
+                            aimPressed = true
+                            // Enable following mode - centers on user and rotates with heading
+                            val currentPosition = if (pdrUiState.pdrState.path.isNotEmpty()) {
+                                pdrUiState.pdrState.path.last().position
+                            } else {
+                                pdrUiState.pdrState.origin
+                            }
+                            onEnableTracking(currentPosition, pdrUiState.pdrState.heading)
+                        }
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -177,11 +268,12 @@ private fun HomeScreenContent(
                 )
                 
                 // PDR path overlay
-                if (pdrUiState.pdrState.path.isNotEmpty()) {
+                // Hidden during origin selection mode
+                if (pdrUiState.pdrState.path.isNotEmpty() && !pdrUiState.isSelectingOrigin) {
                     PdrPathOverlay(
                         path = pdrUiState.pdrState.path,
                         currentHeading = pdrUiState.pdrState.heading,
-                        canvasState = uiState.canvasState,
+                        canvasState = effectiveCanvasState,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -189,7 +281,7 @@ private fun HomeScreenContent(
                 // Origin selection tap handler (when in selection mode)
                 if (pdrUiState.isSelectingOrigin) {
                     OriginSelectionTapHandler(
-                        canvasState = uiState.canvasState,
+                        canvasState = effectiveCanvasState,
                         screenWidth = screenWidth,
                         screenHeight = screenHeight,
                         onPointSelected = onOriginSelected,
@@ -203,13 +295,27 @@ private fun HomeScreenContent(
                     )
                 }
                 
-                // PDR debug buttons (bottom left)
-                PdrDebugButtons(
-                    isTracking = pdrUiState.pdrState.isTracking,
-                    onSetOriginClick = { showOriginDialog = true },
-                    onClearClick = onClearPdrClick,
-                    modifier = Modifier.align(Alignment.BottomStart)
-                )
+                // Set My Location / Stop Tracking button positioned at bottom left
+                // Shows "Set My Location" before origin is set, "Stop Tracking" after
+                // Hides when user is selecting origin
+                // Animates position based on whether slider or search is visible
+                if (pdrUiState.pdrState.origin == null && !pdrUiState.isSelectingOrigin) {
+                    SetLocationButton(
+                        isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                        onClick = { showOriginDialog = true },
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 8.dp, bottom = 16.dp)
+                    )
+                } else if (pdrUiState.pdrState.origin != null && !pdrUiState.isSelectingOrigin) {
+                    StopTrackingButton(
+                        isSliderVisible = uiState.showFloorSlider && !isMorphingToSearch && !showSearch,
+                        onClick = onClearPdrClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 8.dp, bottom = 16.dp)
+                    )
+                }
                 
                 // Origin selection dialog
                 if (showOriginDialog) {

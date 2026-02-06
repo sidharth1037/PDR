@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -226,9 +226,9 @@ fun searchMultiFloor(context: Context, query: String): List<SearchResult> {
 fun DestinationButton(
     coordinates: Pair<Float, Float>,
     onNavigate: (x: Float, y: Float) -> Unit,
+    modifier: Modifier = Modifier,
     label: String? = null,
-    roomNumber: Int? = null,
-    modifier: Modifier = Modifier
+    roomNumber: Int? = null
 ) {
     val displayText = buildString {
         roomNumber?.let { append(" $it") }
@@ -259,7 +259,7 @@ fun DestinationButton(
             )
             Text(text = displayText)
         }
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth(fraction = 0.85f)
                 .align(Alignment.BottomCenter)

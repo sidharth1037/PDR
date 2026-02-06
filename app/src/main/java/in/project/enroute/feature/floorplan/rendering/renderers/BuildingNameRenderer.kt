@@ -20,7 +20,7 @@ fun DrawScope.drawBuildingName(
     canvasScale: Float,
     canvasRotation: Float,
     textColor: Int = android.graphics.Color.DKGRAY,
-    textSize: Float = 48f
+    textSize: Float = 44f
 ) {
     if (buildingName.isEmpty() || labelPosition == null) {
         return
