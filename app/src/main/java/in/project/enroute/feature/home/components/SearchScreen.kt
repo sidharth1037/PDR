@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +60,11 @@ fun SearchScreen(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+    // Intercept system Back (gesture/button) and route it to the composable's back handler
+    BackHandler(enabled = true) {
+        focusManager.clearFocus()
+        onBack()
+    }
     
     // Track pending navigation to delay it until keyboard is hidden
     val pendingNavigation = remember { mutableStateOf<Pair<Float, Float>?>(null) }

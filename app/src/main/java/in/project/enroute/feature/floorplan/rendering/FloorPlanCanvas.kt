@@ -3,7 +3,14 @@ package `in`.project.enroute.feature.floorplan.rendering
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.hypot
 import androidx.compose.foundation.layout.fillMaxSize
+import `in`.project.enroute.data.model.Room
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -23,6 +30,8 @@ import `in`.project.enroute.feature.floorplan.rendering.renderers.drawRoomLabels
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawStairwells
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawWalls
 import `in`.project.enroute.feature.floorplan.rendering.renderers.drawBuildingName
+import `in`.project.enroute.feature.floorplan.rendering.renderers.drawPin
+import android.graphics.drawable.VectorDrawable
 
 /**
  * Display configuration for the floor plan rendering.
@@ -67,19 +76,97 @@ fun FloorPlanCanvas(
     canvasState: CanvasState,
     onCanvasStateChange: (CanvasState) -> Unit,
     modifier: Modifier = Modifier,
-    displayConfig: FloorPlanDisplayConfig = FloorPlanDisplayConfig()
+    displayConfig: FloorPlanDisplayConfig = FloorPlanDisplayConfig(),
+    pinnedRoom: Room? = null,
+    pinDrawable: VectorDrawable? = null,
+    pinTintColor: Int = android.graphics.Color.BLACK,
+    onRoomTap: (Room) -> Unit = {},
+    onBackgroundTap: () -> Unit = {}
 ) {
     if (floorsToRender.isEmpty()) return
 
     // Use rememberUpdatedState to capture latest state without restarting gesture handler
     val currentCanvasState = rememberUpdatedState(canvasState)
     val currentOnCanvasStateChange = rememberUpdatedState(onCanvasStateChange)
+    val canvasSize = remember { mutableStateOf(IntSize.Zero) }
 
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds()
             .background(displayConfig.backgroundColor)
+            .onSizeChanged { canvasSize.value = it }
+            .pointerInput(Unit) {
+                detectTapGestures { tapOffset ->
+                    val cs = currentCanvasState.value
+                    val size = canvasSize.value
+                    if (size.width == 0 || size.height == 0) return@detectTapGestures
+
+                    // Map tap (screen) -> room coordinates
+                    val tapX = tapOffset.x
+                    val tapY = tapOffset.y
+
+                    // Step A: remove canvas translation
+                    val tx = tapX - cs.offsetX
+                    val ty = tapY - cs.offsetY
+
+                    // Step B: rotate by -canvasRotation
+                    val rotRad = Math.toRadians(-cs.rotation.toDouble()).toFloat()
+                    val cosR = cos(rotRad)
+                    val sinR = sin(rotRad)
+                    val rtx = tx * cosR - ty * sinR
+                    val rty = tx * sinR + ty * cosR
+
+                    // Step C: remove canvas scale
+                    val localX = rtx / cs.scale
+                    val localY = rty / cs.scale
+
+                    val centerX = size.width / 2f
+                    val centerY = size.height / 2f
+
+                    // Step D: remove center translate
+                    val rotatedX = localX - centerX
+                    val rotatedY = localY - centerY
+
+                    // Use top floor for label hit-testing
+                    val topFloor = floorsToRender.lastOrNull() ?: return@detectTapGestures
+                    val fpScale = topFloor.metadata.scale
+                    val fpRotation = topFloor.metadata.rotation
+
+                    // Reverse floor-plan rotation
+                    val fpRotRad = Math.toRadians(-fpRotation.toDouble()).toFloat()
+                    val fpCos = cos(fpRotRad)
+                    val fpSin = sin(fpRotRad)
+                    val preScaledX = rotatedX * fpCos - rotatedY * fpSin
+                    val preScaledY = rotatedX * fpSin + rotatedY * fpCos
+
+                    // Remove floor-plan scale to get original room coords
+                    val tappedRoomX = preScaledX / fpScale
+                    val tappedRoomY = preScaledY / fpScale
+
+                    // Tolerance in room units (approx 24 pixels visually)
+                    val tolerance = 24f / fpScale
+
+                    // Find nearest room within tolerance
+                    var nearest: Room? = null
+                    var nearestDist = Float.MAX_VALUE
+                    for (room in topFloor.rooms) {
+                        val dx = tappedRoomX - room.x
+                        val dy = tappedRoomY - room.y
+                        val dist = hypot(dx, dy)
+                        if (dist < nearestDist) {
+                            nearestDist = dist
+                            nearest = room
+                        }
+                    }
+
+                    if (nearest != null && nearestDist <= tolerance) {
+                        onRoomTap(nearest)
+                    } else {
+                        onBackgroundTap()
+                    }
+                }
+            }
             .pointerInput(Unit) {
                 detectTransformGestures { centroid, pan, zoom, rotationChange ->
                     val state = currentCanvasState.value
@@ -221,6 +308,21 @@ fun FloorPlanCanvas(
                     canvasRotation = canvasState.rotation
                 )
             }
+
+            // Draw pin on the pinned room (if any)
+            if (pinnedRoom != null && pinDrawable != null) {
+                val topFloor = floorsToRender.last()
+                drawPin(
+                    pinX = pinnedRoom.x,
+                    pinY = pinnedRoom.y,
+                    scale = topFloor.metadata.scale,
+                    rotationDegrees = topFloor.metadata.rotation,
+                    canvasScale = canvasState.scale,
+                    canvasRotation = canvasState.rotation,
+                    pinDrawable = pinDrawable,
+                    tintColor = pinTintColor
+                )
+            }
         }
     }
 }
@@ -232,11 +334,11 @@ fun FloorPlanCanvas(
  * A room is considered covered if its center point is inside any boundary polygon of a floor above.
  */
 private fun filterVisibleRooms(
-    rooms: List<`in`.project.enroute.data.model.Room>,
+    rooms: List<Room>,
     roomFloorScale: Float,
     roomFloorRotation: Float,
     floorsAbove: List<FloorPlanData>
-): List<`in`.project.enroute.data.model.Room> {
+): List<Room> {
     if (floorsAbove.isEmpty()) {
         return rooms
     }

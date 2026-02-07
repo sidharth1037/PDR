@@ -38,7 +38,7 @@ fun AimButton(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primaryContainer
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimaryContainer
-    val buttonSize = 56.dp
+    val buttonSize = 52.dp
 
     AnimatedVisibility(
         modifier = modifier,

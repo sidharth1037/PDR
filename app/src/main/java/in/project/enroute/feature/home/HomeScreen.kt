@@ -38,6 +38,12 @@ import `in`.project.enroute.feature.home.components.SearchScreen
 import `in`.project.enroute.feature.home.components.AimButton
 import `in`.project.enroute.feature.home.components.CompassButton
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanCanvas
+import `in`.project.enroute.data.model.Room
+import android.graphics.drawable.VectorDrawable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.ContextCompat
 import `in`.project.enroute.feature.pdr.PdrViewModel
 import `in`.project.enroute.feature.pdr.PdrUiState
 import `in`.project.enroute.feature.pdr.ui.components.OriginSelectionDialog
@@ -126,6 +132,8 @@ fun HomeScreen(
             onCanvasStateChange = { floorPlanViewModel.updateCanvasState(it) },
             onFloorChange = { floorPlanViewModel.setCurrentFloor(it) },
             onCenterView = { x, y, scale -> floorPlanViewModel.centerOnCoordinate(x, y, scale) },
+            onRoomTap = { room -> floorPlanViewModel.pinRoom(room) },
+            onBackgroundTap = { floorPlanViewModel.clearPin() },
             onEnableTracking = { position, heading ->
                 // Use ViewModel default following zoom unless caller specifies otherwise
                 floorPlanViewModel.enableFollowingMode(position, heading)
@@ -153,6 +161,8 @@ private fun HomeScreenContent(
     onCanvasStateChange: (CanvasState) -> Unit,
     onFloorChange: (Float) -> Unit,
     onCenterView: (x: Float, y: Float, scale: Float) -> Unit,
+    onRoomTap: (Room) -> Unit,
+    onBackgroundTap: () -> Unit,
     onEnableTracking: (position: androidx.compose.ui.geometry.Offset, headingRadians: Float) -> Unit,
     onSetOriginClick: () -> Unit,
     onClearPdrClick: () -> Unit,
@@ -181,12 +191,24 @@ private fun HomeScreenContent(
                 Text(text = uiState.error)
             }
             uiState.allFloorsToRender.isNotEmpty() -> {
+                // Resolve pin drawable and primary tint color
+                val context = LocalContext.current
+                val pinDrawable = remember {
+                    ContextCompat.getDrawable(context, `in`.project.enroute.R.drawable.pin) as? VectorDrawable
+                }
+                val primaryColor = MaterialTheme.colorScheme.primary.toArgb()
+
                 // Floor plan canvas filling entire screen
                 FloorPlanCanvas(
                     floorsToRender = uiState.allFloorsToRender,
                     canvasState = effectiveCanvasState,
                     onCanvasStateChange = onCanvasStateChange,
                     displayConfig = uiState.displayConfig,
+                    pinnedRoom = uiState.pinnedRoom,
+                    pinDrawable = pinDrawable,
+                    pinTintColor = primaryColor,
+                    onRoomTap = onRoomTap,
+                    onBackgroundTap = onBackgroundTap,
                     modifier = Modifier.fillMaxSize()
                 )
 
@@ -264,7 +286,7 @@ private fun HomeScreenContent(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(bottom = 16.dp, end = 16.dp)
+                        .padding(bottom = 16.dp, end = 8.dp)
                 )
                 
                 // PDR path overlay

@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import `in`.project.enroute.data.model.Building
 import `in`.project.enroute.data.model.FloorPlanData
+import `in`.project.enroute.data.model.Room
 import `in`.project.enroute.data.repository.FloorPlanRepository
 import `in`.project.enroute.data.repository.LocalFloorPlanRepository
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
@@ -64,7 +65,13 @@ data class FloorPlanUiState(
     /**
      * Whether following mode is enabled (canvas follows user position/heading)
      */
-    val isFollowingMode: Boolean = false
+    val isFollowingMode: Boolean = false,
+    
+    /**
+     * Currently pinned room (shown as a pin on the canvas).
+     * Null when no pin is displayed.
+     */
+    val pinnedRoom: Room? = null
 ) {
     /**
      * Returns the state of the dominant building, if any.
@@ -430,7 +437,21 @@ class FloorPlanViewModel(
      * Resets canvas to initial state.
      */
     fun resetCanvas() {
-        _uiState.update { it.copy(canvasState = CanvasState()) }
+        _uiState.update { it.copy(canvasState = CanvasState(), pinnedRoom = null) }
+    }
+    
+    /**
+     * Places a pin on the given room. Replaces any existing pin.
+     */
+    fun pinRoom(room: Room) {
+        _uiState.update { it.copy(pinnedRoom = room) }
+    }
+    
+    /**
+     * Removes the current pin.
+     */
+    fun clearPin() {
+        _uiState.update { it.copy(pinnedRoom = null) }
     }
     
     /**
