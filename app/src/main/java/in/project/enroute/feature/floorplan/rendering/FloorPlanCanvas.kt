@@ -88,6 +88,7 @@ fun FloorPlanCanvas(
     // Use rememberUpdatedState to capture latest state without restarting gesture handler
     val currentCanvasState = rememberUpdatedState(canvasState)
     val currentOnCanvasStateChange = rememberUpdatedState(onCanvasStateChange)
+    val currentFloorsToRender = rememberUpdatedState(floorsToRender)
     val canvasSize = remember { mutableStateOf(IntSize.Zero) }
 
     Canvas(
@@ -108,11 +109,8 @@ fun FloorPlanCanvas(
                         return@detectTapGestures
                     }
 
-                    val topFloor = floorsToRender.lastOrNull() ?: return@detectTapGestures
-                    val fpScale = topFloor.metadata.scale
-                    val fpRotRad = Math.toRadians(topFloor.metadata.rotation.toDouble()).toFloat()
-                    val fpCos = cos(fpRotRad)
-                    val fpSin = sin(fpRotRad)
+                    val floors = currentFloorsToRender.value
+                    if (floors.isEmpty()) return@detectTapGestures
 
                     val centerX = size.width / 2f
                     val centerY = size.height / 2f
@@ -139,52 +137,68 @@ fun FloorPlanCanvas(
                     val hitPadY = screenTextSize * 0.4f
                     val maxCharsPerLine = 15
 
-                    // Forward-transform each room to screen space and compare
-                    // against the raw tap position. The rectangular hitbox is
-                    // always axis-aligned with the screen, matching the upright labels.
-                    val candidates = topFloor.rooms.mapNotNull { room ->
-                        if (room.name == null) return@mapNotNull null
+                    // Check all rendered floors, filtering out rooms covered by
+                    // floors above – same logic as the renderer uses.
+                    val candidates = mutableListOf<Pair<Room, Float>>()
 
-                        // Build label text (same as renderer)
-                        val labelText = if (room.number != null) {
-                            "${room.number}: ${room.name}"
-                        } else {
-                            room.name
+                    for ((index, floorData) in floors.withIndex()) {
+                        val floorsAbove = floors.subList(index + 1, floors.size)
+                        val visibleRooms = filterVisibleRooms(
+                            rooms = floorData.rooms,
+                            roomFloorScale = floorData.metadata.scale,
+                            roomFloorRotation = floorData.metadata.rotation,
+                            floorsAbove = floorsAbove
+                        )
+
+                        val fpScale = floorData.metadata.scale
+                        val fpRotRad = Math.toRadians(floorData.metadata.rotation.toDouble()).toFloat()
+                        val fpCos = cos(fpRotRad)
+                        val fpSin = sin(fpRotRad)
+
+                        for (room in visibleRooms) {
+                            if (room.name == null) continue
+
+                            // Build label text (same as renderer)
+                            val labelText = if (room.number != null) {
+                                "${room.number}: ${room.name}"
+                            } else {
+                                room.name
+                            }
+
+                            // Estimate line metrics
+                            val numLines = if (labelText.length <= maxCharsPerLine) 1
+                                           else ((labelText.length + maxCharsPerLine - 1) / maxCharsPerLine)
+                            val maxLineChars = minOf(labelText.length, maxCharsPerLine)
+
+                            // Hitbox half-dimensions in screen pixels
+                            val halfW = (maxLineChars * charWidthPx) / 2f + hitPadX
+                            val halfH = (numLines * lineHeightPx) / 2f + hitPadY
+
+                            // Floor-plan transform (scale + rotation from metadata)
+                            val rx = room.x * fpScale
+                            val ry = room.y * fpScale
+                            val fprX = rx * fpCos - ry * fpSin
+                            val fprY = rx * fpSin + ry * fpCos
+
+                            // Center translate
+                            val cx = fprX + centerX
+                            val cy = fprY + centerY
+
+                            // Canvas scale
+                            val sx = cx * cs.scale
+                            val sy = cy * cs.scale
+
+                            // Canvas rotation (around origin 0,0) + translation
+                            val screenX = sx * canvasCos - sy * canvasSin + cs.offsetX
+                            val screenY = sx * canvasSin + sy * canvasCos + cs.offsetY
+
+                            // Screen-pixel rectangle, always axis-aligned
+                            val dx = tapOffset.x - screenX
+                            val dy = tapOffset.y - screenY
+                            if (abs(dx) <= halfW && abs(dy) <= halfH) {
+                                candidates.add(Pair(room, hypot(dx, dy)))
+                            }
                         }
-
-                        // Estimate line metrics
-                        val numLines = if (labelText.length <= maxCharsPerLine) 1
-                                       else ((labelText.length + maxCharsPerLine - 1) / maxCharsPerLine)
-                        val maxLineChars = minOf(labelText.length, maxCharsPerLine)
-
-                        // Hitbox half-dimensions in screen pixels
-                        val halfW = (maxLineChars * charWidthPx) / 2f + hitPadX
-                        val halfH = (numLines * lineHeightPx) / 2f + hitPadY
-
-                        // Floor-plan transform (scale + rotation from metadata)
-                        val rx = room.x * fpScale
-                        val ry = room.y * fpScale
-                        val fprX = rx * fpCos - ry * fpSin
-                        val fprY = rx * fpSin + ry * fpCos
-
-                        // Center translate (matches translate(centerX, centerY) in draw)
-                        val cx = fprX + centerX
-                        val cy = fprY + centerY
-
-                        // Canvas scale
-                        val sx = cx * cs.scale
-                        val sy = cy * cs.scale
-
-                        // Canvas rotation (around origin 0,0) + translation
-                        val screenX = sx * canvasCos - sy * canvasSin + cs.offsetX
-                        val screenY = sx * canvasSin + sy * canvasCos + cs.offsetY
-
-                        // Screen-pixel rectangle, always axis-aligned
-                        val dx = tapOffset.x - screenX
-                        val dy = tapOffset.y - screenY
-                        if (abs(dx) <= halfW && abs(dy) <= halfH) {
-                            Pair(room, hypot(dx, dy))
-                        } else null
                     }
 
                     val chosen = candidates.minByOrNull { it.second }?.first

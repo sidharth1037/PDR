@@ -148,7 +148,16 @@ fun HomeScreen(
             },
             onFloorChange = { floorPlanViewModel.setCurrentFloor(it) },
             onCenterView = { x, y, scale -> floorPlanViewModel.centerOnCoordinate(x, y, scale) },
-            onRoomTap = { room -> floorPlanViewModel.pinRoom(room) },
+            onRoomTap = { room ->
+                // Switch to the room's floor if it has floor info
+                room.floorId?.let { fid ->
+                    val floorNumber = fid.removePrefix("floor_").toFloatOrNull()
+                    if (floorNumber != null) {
+                        floorPlanViewModel.setCurrentFloor(floorNumber)
+                    }
+                }
+                floorPlanViewModel.pinRoom(room)
+            },
             onBackgroundTap = { floorPlanViewModel.clearPin() },
             onEnableTracking = { position, heading ->
                 // Switch heading sensor to fast tracking for smooth rotation

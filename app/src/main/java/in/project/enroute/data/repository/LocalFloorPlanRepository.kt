@@ -31,8 +31,8 @@ class LocalFloorPlanRepository(
         val metadata = loadMetadata("${buildingId}_metadata.json")
         val walls = loadWalls("${floorId}_walls.json")
         val stairwells = loadStairwells("${floorId}_stairs.json")
-        val entrances = loadEntrances("${floorId}_entrances.json")
-        val rooms = loadRooms("${floorId}_rooms.json")
+        val entrances = loadEntrances("${floorId}_entrances.json").map { it.copy(floorId = floorId) }
+        val rooms = loadRooms("${floorId}_rooms.json").map { it.copy(floorId = floorId) }
         val boundaryPolygons = loadBoundaryPolygons("${floorId}_boundary.json")
 
         FloorPlanData(

@@ -52,7 +52,7 @@ object SearchCache {
      */
     fun getRooms(context: Context, floorId: String): List<Room> {
         return cachedRooms.getOrPut(floorId) {
-            loadRoomsFromAssets(context, floorId)
+            loadRoomsFromAssets(context, floorId).map { it.copy(floorId = floorId) }
         }
     }
     
