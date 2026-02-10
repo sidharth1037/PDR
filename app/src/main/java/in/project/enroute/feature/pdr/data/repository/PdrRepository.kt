@@ -66,7 +66,7 @@ class PdrRepository {
      *
      * @param origin The starting coordinate in canvas/world space
      */
-    fun setOrigin(origin: Offset) {
+    fun setOrigin(origin: Offset, currentFloor: String? = null) {
         currentX = origin.x
         currentY = origin.y
         stepCount = 0
@@ -81,7 +81,8 @@ class PdrRepository {
             origin = origin,
             currentPosition = origin,
             path = path,
-            cadenceState = CadenceState()
+            cadenceState = CadenceState(),
+            currentFloor = currentFloor
         )
     }
 
@@ -184,7 +185,8 @@ class PdrRepository {
             origin = null,
             currentPosition = null,
             path = emptyList(),
-            cadenceState = CadenceState()
+            cadenceState = CadenceState(),
+            currentFloor = null
         )
         _heading.value = 0f
 

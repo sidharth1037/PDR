@@ -89,5 +89,7 @@ data class PdrState(
     val origin: Offset? = null,
     val currentPosition: Offset? = null,
     val path: List<PathPoint> = emptyList(),
-    val cadenceState: CadenceState = CadenceState()
+    val cadenceState: CadenceState = CadenceState(),
+    /** The floor the user is currently on (e.g. "floor_1"). Used for multi-floor navigation. */
+    val currentFloor: String? = null
 )

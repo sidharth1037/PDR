@@ -55,14 +55,19 @@ import `in`.project.enroute.feature.home.components.RoomInfoPanel
 import `in`.project.enroute.feature.home.components.StopTrackingButton
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween as dpTween
+import `in`.project.enroute.feature.navigation.NavigationViewModel
+import `in`.project.enroute.feature.navigation.NavigationUiState
+import `in`.project.enroute.feature.navigation.ui.NavigationPathOverlay
 
 @Composable
 fun HomeScreen(
     floorPlanViewModel: FloorPlanViewModel = viewModel(),
-    pdrViewModel: PdrViewModel = viewModel()
+    pdrViewModel: PdrViewModel = viewModel(),
+    navigationViewModel: NavigationViewModel = viewModel()
 ) {
     val uiState by floorPlanViewModel.uiState.collectAsState()
     val pdrUiState by pdrViewModel.uiState.collectAsState()
+    val navUiState by navigationViewModel.uiState.collectAsState()
     // Heading collected separately so compass changes don't recompose entire tree
     val heading by pdrViewModel.heading.collectAsState()
     val view = LocalView.current
@@ -73,6 +78,13 @@ fun HomeScreen(
             "building_1", 
             listOf("floor_1", "floor_1.5", "floor_2", "floor_2.5")
         )
+    }
+
+    // Supply loaded floor data to NavigationViewModel whenever it changes
+    LaunchedEffect(uiState.allLoadedFloors) {
+        if (uiState.allLoadedFloors.isNotEmpty()) {
+            navigationViewModel.supplyFloorData(uiState.allLoadedFloors)
+        }
     }
 
     // Keep screen on when PDR tracking is active
@@ -134,6 +146,7 @@ fun HomeScreen(
         HomeScreenContent(
             uiState = uiState,
             pdrUiState = pdrUiState,
+            navUiState = navUiState,
             heading = heading,
             effectiveCanvasState = effectiveCanvasState,
             screenWidth = screenWidth,
@@ -158,7 +171,10 @@ fun HomeScreen(
                 }
                 floorPlanViewModel.pinRoom(room)
             },
-            onBackgroundTap = { floorPlanViewModel.clearPin() },
+            onBackgroundTap = {
+                floorPlanViewModel.clearPin()
+                navigationViewModel.clearPath()
+            },
             onEnableTracking = { position, heading ->
                 // Switch heading sensor to fast tracking for smooth rotation
                 pdrViewModel.setHeadingTrackingMode(true)
@@ -170,9 +186,26 @@ fun HomeScreen(
                 pdrViewModel.setHeadingTrackingMode(false)
                 floorPlanViewModel.disableFollowingMode(effectiveCanvasState)
                 pdrViewModel.clearAndStop()
+                navigationViewModel.clearPath()
             },
-            onOriginSelected = { pdrViewModel.setOrigin(it) },
-            onCancelOriginSelection = { pdrViewModel.cancelOriginSelection() }
+            onOriginSelected = { origin ->
+                // Pass current floor to PDR origin
+                val currentFloor = uiState.currentFloorId
+                pdrViewModel.setOrigin(origin, currentFloor)
+            },
+            onCancelOriginSelection = { pdrViewModel.cancelOriginSelection() },
+            onDirectionsClick = { room ->
+                val origin = pdrUiState.pdrState.origin
+                val currentPosition = if (pdrUiState.pdrState.path.isNotEmpty()) {
+                    pdrUiState.pdrState.path.last().position
+                } else {
+                    origin
+                }
+                val currentFloor = uiState.currentFloorId
+                if (currentPosition != null && currentFloor != null) {
+                    navigationViewModel.requestDirections(room, currentPosition, currentFloor)
+                }
+            }
         )
     }
 }
@@ -181,6 +214,7 @@ fun HomeScreen(
 private fun HomeScreenContent(
     uiState: FloorPlanUiState,
     pdrUiState: PdrUiState,
+    navUiState: NavigationUiState,
     heading: Float,
     effectiveCanvasState: CanvasState,
     screenWidth: Float,
@@ -195,12 +229,16 @@ private fun HomeScreenContent(
     onSetOriginClick: () -> Unit,
     onClearPdrClick: () -> Unit,
     onOriginSelected: (androidx.compose.ui.geometry.Offset) -> Unit,
-    onCancelOriginSelection: () -> Unit
+    onCancelOriginSelection: () -> Unit,
+    onDirectionsClick: (Room) -> Unit
 ) {
     var showSearch by remember { mutableStateOf(false) }
     var isMorphingToSearch by remember { mutableStateOf(false) }
     var showOriginDialog by remember { mutableStateOf(false) }
     var aimPressed by remember { mutableStateOf(false) }
+    // When true, means the origin dialog was triggered by "Directions" button
+    // and we should request directions once origin is set
+    var pendingDirectionsRoom by remember { mutableStateOf<Room?>(null) }
 
     // Animate bottom button offset when room info panel is visible
     val panelVisible = uiState.pinnedRoom != null
@@ -213,6 +251,15 @@ private fun HomeScreenContent(
     // Reset local pressed state when following mode is turned off so button reappears
     LaunchedEffect(uiState.isFollowingMode) {
         if (!uiState.isFollowingMode) aimPressed = false
+    }
+
+    // When origin becomes available after a pending "Directions" request, fire pathfinding
+    LaunchedEffect(pdrUiState.pdrState.origin, pendingDirectionsRoom) {
+        val room = pendingDirectionsRoom
+        if (room != null && pdrUiState.pdrState.origin != null) {
+            pendingDirectionsRoom = null
+            onDirectionsClick(room)
+        }
     }
 
     Box(
@@ -253,6 +300,15 @@ private fun HomeScreenContent(
                     PdrPathOverlay(
                         path = pdrUiState.pdrState.path,
                         currentHeading = heading,
+                        canvasState = effectiveCanvasState,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                // A* navigation path overlay
+                if (navUiState.path.isNotEmpty()) {
+                    NavigationPathOverlay(
+                        path = navUiState.path,
                         canvasState = effectiveCanvasState,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -368,7 +424,17 @@ private fun HomeScreenContent(
                 // Room info panel slides up from bottom when a room label is tapped
                 RoomInfoPanel(
                     room = uiState.pinnedRoom,
+                    isCalculatingPath = navUiState.isCalculating,
                     onDismiss = onBackgroundTap,
+                    onDirectionsClick = { room ->
+                        if (pdrUiState.pdrState.origin == null) {
+                            // Origin not set → show dialog, remember room for later
+                            pendingDirectionsRoom = room
+                            showOriginDialog = true
+                        } else {
+                            onDirectionsClick(room)
+                        }
+                    },
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
                 

@@ -111,6 +111,24 @@ data class FloorPlanUiState(
      */
     val sliderBuildingName: String
         get() = dominantBuildingState?.building?.buildingName ?: ""
+
+    /**
+     * Returns the floorId of the current floor in the dominant building (e.g. "floor_1").
+     */
+    val currentFloorId: String?
+        get() = dominantBuildingState?.currentFloorData?.floorId
+
+    /**
+     * Returns the current floor's FloorPlanData (walls, entrances, etc.) from the dominant building.
+     */
+    val currentFloorData: FloorPlanData?
+        get() = dominantBuildingState?.currentFloorData
+
+    /**
+     * Returns all loaded FloorPlanData across all buildings and floors.
+     */
+    val allLoadedFloors: List<FloorPlanData>
+        get() = buildingStates.values.flatMap { it.floors.values }
 }
 
 /**

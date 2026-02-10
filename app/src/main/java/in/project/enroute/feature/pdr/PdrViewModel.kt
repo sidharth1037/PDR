@@ -103,13 +103,14 @@ class PdrViewModel(application: Application) : AndroidViewModel(application) {
      * 3. Start the step detector
      *
      * @param origin The starting coordinate in canvas/world space
+     * @param currentFloor The floor the user is on (e.g. "floor_1"), used for multi-floor navigation
      */
-    fun setOrigin(origin: Offset) {
+    fun setOrigin(origin: Offset, currentFloor: String? = null) {
         // Exit selection mode
         _uiState.update { it.copy(isSelectingOrigin = false) }
         
         // Set origin in repository (this enables tracking)
-        repository.setOrigin(origin)
+        repository.setOrigin(origin, currentFloor)
         
         // Start sensors
         startSensors()
