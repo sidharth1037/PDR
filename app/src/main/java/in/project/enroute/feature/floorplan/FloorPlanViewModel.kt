@@ -5,16 +5,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import `in`.project.enroute.data.model.Building
 import `in`.project.enroute.data.model.FloorPlanData
+import `in`.project.enroute.data.model.Room
 import `in`.project.enroute.data.repository.FloorPlanRepository
 import `in`.project.enroute.data.repository.LocalFloorPlanRepository
 import `in`.project.enroute.feature.floorplan.rendering.CanvasState
 import `in`.project.enroute.feature.floorplan.rendering.FloorPlanDisplayConfig
 import `in`.project.enroute.feature.floorplan.state.BuildingState
-import `in`.project.enroute.feature.floorplan.utils.CanvasAnimationConfig
-import `in`.project.enroute.feature.floorplan.utils.CanvasAnimator
-import `in`.project.enroute.feature.floorplan.utils.CanvasTarget
 import `in`.project.enroute.feature.floorplan.utils.FollowingAnimator
 import `in`.project.enroute.feature.floorplan.utils.FollowingConfig
+import `in`.project.enroute.feature.floorplan.utils.CenteringConfig
 import `in`.project.enroute.feature.floorplan.utils.ViewportUtils
 import androidx.compose.ui.geometry.Offset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * UI state for the floor plan feature.
@@ -66,7 +67,19 @@ data class FloorPlanUiState(
     /**
      * Whether following mode is enabled (canvas follows user position/heading)
      */
-    val isFollowingMode: Boolean = false
+    val isFollowingMode: Boolean = false,
+
+    /**
+     * True while the initial follow animation is running.
+     * Allows UI to stay in "following" state without overriding the in-flight animation.
+     */
+    val isFollowingAnimating: Boolean = false,
+    
+    /**
+     * Currently pinned room (shown as a pin on the canvas).
+     * Null when no pin is displayed.
+     */
+    val pinnedRoom: Room? = null
 ) {
     /**
      * Returns the state of the dominant building, if any.
@@ -224,7 +237,15 @@ class FloorPlanViewModel(
             val updatedBuildingStates = currentState.buildingStates.toMutableMap()
             updatedBuildingStates[buildingId] = updatedBuildingState
             
-            currentState.copy(buildingStates = updatedBuildingStates)
+            val newState = currentState.copy(buildingStates = updatedBuildingStates)
+            
+            // Check if the pinned room is still visible after floor change
+            // If not, unpin it
+            if (newState.pinnedRoom != null && !isRoomVisibleInFloorsToRender(newState.pinnedRoom, newState.allFloorsToRender)) {
+                newState.copy(pinnedRoom = null)
+            } else {
+                newState
+            }
         }
     }
 
@@ -235,6 +256,106 @@ class FloorPlanViewModel(
     fun setCurrentFloor(floorNumber: Float) {
         val dominantBuildingId = _uiState.value.dominantBuildingId ?: return
         setCurrentFloor(dominantBuildingId, floorNumber)
+    }
+
+    /**
+     * Checks if a room is visible in the given list of floors to render.
+     * A room is visible if it exists in one of the floors and is not covered
+     * by any floor above it.
+     */
+    private fun isRoomVisibleInFloorsToRender(room: Room, floorsToRender: List<FloorPlanData>): Boolean {
+        if (floorsToRender.isEmpty()) return false
+        
+        for ((index, floorData) in floorsToRender.withIndex()) {
+            // Check if room is in this floor
+            if (room !in floorData.rooms) continue
+            
+            // Room is in this floor - now check if it's covered by floors above
+            val floorsAbove = floorsToRender.subList(index + 1, floorsToRender.size)
+            if (floorsAbove.isEmpty()) {
+                // No floors above, so room is visible
+                return true
+            }
+            
+            // Check if room center point is covered by any floor above
+            if (!isRoomCoveredByFloorsAbove(room, floorData, floorsAbove)) {
+                return true
+            }
+        }
+        
+        return false
+    }
+
+    /**
+     * Checks if a room's center point is covered by any of the given floors.
+     * Uses the same point-in-polygon logic as the rendering system.
+     */
+    private fun isRoomCoveredByFloorsAbove(room: Room, roomFloor: FloorPlanData, floorsAbove: List<FloorPlanData>): Boolean {
+        if (floorsAbove.isEmpty()) return false
+        
+        // Transform room center to canvas coordinates
+        val angleRad = Math.toRadians(roomFloor.metadata.rotation.toDouble()).toFloat()
+        val cosAngle = cos(angleRad)
+        val sinAngle = sin(angleRad)
+        
+        val x = room.x * roomFloor.metadata.scale
+        val y = room.y * roomFloor.metadata.scale
+        val rotatedX = x * cosAngle - y * sinAngle
+        val rotatedY = x * sinAngle + y * cosAngle
+        
+        // Check if this point is inside any boundary polygon of floors above
+        for (floor in floorsAbove) {
+            val scale = floor.metadata.scale
+            val rotationDegrees = floor.metadata.rotation
+            val floorAngleRad = Math.toRadians(rotationDegrees.toDouble()).toFloat()
+            val floorCosAngle = cos(floorAngleRad)
+            val floorSinAngle = sin(floorAngleRad)
+            
+            for (polygon in floor.boundaryPolygons) {
+                if (polygon.points.isEmpty()) continue
+                
+                // Transform polygon points to canvas coordinates
+                val transformedPoints = polygon.points.sortedBy { it.id }.map { point ->
+                    val px = point.x * scale
+                    val py = point.y * scale
+                    val rotatedPx = px * floorCosAngle - py * floorSinAngle
+                    val rotatedPy = px * floorSinAngle + py * floorCosAngle
+                    Pair(rotatedPx, rotatedPy)
+                }
+                
+                // Check if room center point is inside this polygon
+                if (isPointInPolygon(rotatedX, rotatedY, transformedPoints)) {
+                    return true
+                }
+            }
+        }
+        
+        return false
+    }
+
+    /**
+     * Ray casting algorithm to check if a point is inside a polygon.
+     */
+    private fun isPointInPolygon(x: Float, y: Float, polygon: List<Pair<Float, Float>>): Boolean {
+        if (polygon.size < 3) return false
+        
+        var inside = false
+        var j = polygon.size - 1
+        
+        for (i in polygon.indices) {
+            val xi = polygon[i].first
+            val yi = polygon[i].second
+            val xj = polygon[j].first
+            val yj = polygon[j].second
+            
+            val intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+            if (intersect) {
+                inside = !inside
+            }
+            j = i
+        }
+        
+        return inside
     }
 
     /**
@@ -278,6 +399,7 @@ class FloorPlanViewModel(
         _uiState.update { currentState ->
             // Disable following mode if user manually pans/zooms
             val newFollowingMode = if (isFromGesture) false else currentState.isFollowingMode
+            val newFollowingAnimating = if (isFromGesture) false else currentState.isFollowingAnimating
             val screenWidth = currentState.screenWidth
             val screenHeight = currentState.screenHeight
             
@@ -302,7 +424,8 @@ class FloorPlanViewModel(
                 canvasState = canvasState,
                 dominantBuildingId = dominantBuildingId,
                 showFloorSlider = showFloorSlider,
-                isFollowingMode = newFollowingMode
+                isFollowingMode = newFollowingMode,
+                isFollowingAnimating = newFollowingAnimating
             )
         }
     }
@@ -323,6 +446,8 @@ class FloorPlanViewModel(
     ) {
         viewModelScope.launch {
             val currentState = _uiState.value
+            // Mark following as active immediately so gestures can cleanly cancel it
+            _uiState.update { it.copy(isFollowingMode = true, isFollowingAnimating = true) }
             
             val targetState = FollowingAnimator.calculateFollowingState(
                 worldPosition = position,
@@ -338,12 +463,20 @@ class FloorPlanViewModel(
                 targetState = targetState,
                 config = FollowingConfig(scale = scale),
                 onStateUpdate = { newState ->
-                    _uiState.update { it.copy(canvasState = newState) }
+                    // Only apply animation frames while following is still enabled
+                    _uiState.update { state ->
+                        if (!state.isFollowingMode) state else state.copy(canvasState = newState)
+                    }
                 }
             )
 
             // Ensure final state and enable following mode after animation completes
-            _uiState.update { it.copy(canvasState = targetState, isFollowingMode = true) }
+            _uiState.update { state ->
+                if (!state.isFollowingMode) state else state.copy(
+                    canvasState = targetState,
+                    isFollowingAnimating = false
+                )
+            }
         }
     }
     
@@ -382,7 +515,8 @@ class FloorPlanViewModel(
         _uiState.update { 
             it.copy(
                 canvasState = finalCanvasState ?: it.canvasState,
-                isFollowingMode = false
+                isFollowingMode = false,
+                isFollowingAnimating = false
             ) 
         }
     }
@@ -432,7 +566,21 @@ class FloorPlanViewModel(
      * Resets canvas to initial state.
      */
     fun resetCanvas() {
-        _uiState.update { it.copy(canvasState = CanvasState()) }
+        _uiState.update { it.copy(canvasState = CanvasState(), pinnedRoom = null) }
+    }
+    
+    /**
+     * Places a pin on the given room. Replaces any existing pin.
+     */
+    fun pinRoom(room: Room) {
+        _uiState.update { it.copy(pinnedRoom = room) }
+    }
+    
+    /**
+     * Removes the current pin.
+     */
+    fun clearPin() {
+        _uiState.update { it.copy(pinnedRoom = null) }
     }
     
     /**
@@ -449,23 +597,27 @@ class FloorPlanViewModel(
         x: Float,
         y: Float,
         scale: Float,
-        animationConfig: CanvasAnimationConfig = CanvasAnimationConfig()
+        animationConfig: CenteringConfig = CenteringConfig()
     ) {
         viewModelScope.launch {
             val currentState = _uiState.value
-            val target = CanvasTarget(x = x, y = y, scale = scale)
-            
-            // Get current floor plan metadata for transformations
-            val dominantBuildingState = currentState.dominantBuildingState
-            val currentFloorNumber = dominantBuildingState?.currentFloorNumber ?: 1f
-            val currentFloorData = dominantBuildingState?.floors?.get(currentFloorNumber)
+
+            // Use dominant building when available; otherwise fall back to any loaded building
+            val buildingState = currentState.dominantBuildingState
+                ?: currentState.buildingStates.values.firstOrNull()
+                ?: return@launch
+
+            val currentFloorNumber = buildingState.currentFloorNumber
+            val currentFloorData = buildingState.floors[currentFloorNumber]
             
             val floorPlanScale = currentFloorData?.metadata?.scale ?: 1f
             val floorPlanRotation = currentFloorData?.metadata?.rotation ?: 0f
             
-            CanvasAnimator.animateToTarget(
+            FollowingAnimator.animateToFloorPlanCoordinate(
                 currentState = currentState.canvasState,
-                target = target,
+                targetX = x,
+                targetY = y,
+                targetScale = scale,
                 floorPlanScale = floorPlanScale,
                 floorPlanRotation = floorPlanRotation,
                 screenWidth = currentState.screenWidth,

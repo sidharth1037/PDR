@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,7 @@ import kotlinx.coroutines.delay
 import `in`.project.enroute.feature.home.utils.searchMultiFloor
 import `in`.project.enroute.feature.home.utils.DestinationButton
 import `in`.project.enroute.feature.home.utils.SearchResult
+import `in`.project.enroute.data.model.Room
 
 /**
  * Full-screen search page showing an input box at the top.
@@ -52,13 +54,19 @@ import `in`.project.enroute.feature.home.utils.SearchResult
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,
-    onCenterView: (x: Float, y: Float, scale: Float) -> Unit = { _, _, _ -> }
+    onCenterView: (x: Float, y: Float, scale: Float) -> Unit = { _, _, _ -> },
+    onRoomTap: (Room) -> Unit = { _ -> }
 ) {
     val query = remember { mutableStateOf("") }
     val searchResults = remember { mutableStateOf<List<SearchResult>>(emptyList()) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+    // Intercept system Back (gesture/button) and route it to the composable's back handler
+    BackHandler(enabled = true) {
+        focusManager.clearFocus()
+        onBack()
+    }
     
     // Track pending navigation to delay it until keyboard is hidden
     val pendingNavigation = remember { mutableStateOf<Pair<Float, Float>?>(null) }
@@ -191,6 +199,8 @@ fun SearchScreen(
                     DestinationButton(
                         coordinates = Pair(result.x, result.y),
                         onNavigate = { x, y ->
+                            // Pin the room first
+                            onRoomTap(result.room)
                             // Hide keyboard immediately
                             focusManager.clearFocus()
                             // Schedule navigation after keyboard hide animation completes

@@ -12,5 +12,8 @@ data class Room(
     val number: Int? = null,
     val name: String? = null,
     @SerializedName("point_ids")
-    val pointIds: List<Int> = emptyList()
+    val pointIds: List<Int> = emptyList(),
+    /** Floor this room belongs to (e.g. "floor_1"). Set after loading, not from JSON. */
+    @Transient
+    val floorId: String? = null
 )

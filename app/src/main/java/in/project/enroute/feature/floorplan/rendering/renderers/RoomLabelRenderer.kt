@@ -13,6 +13,7 @@ import kotlin.math.sin
  * Labels are drawn at room center points and counter-rotated to stay readable.
  * Labels longer than 15 characters are split across multiple lines without cutting words.
  * Labels are hidden when canvas zoom level is below 0.5.
+ * Labels maintain constant size at zoom levels >= 0.8, and scale down below that threshold.
  */
 fun DrawScope.drawRoomLabels(
     rooms: List<Room>,
@@ -21,7 +22,8 @@ fun DrawScope.drawRoomLabels(
     canvasScale: Float,
     canvasRotation: Float,
     textColor: Int = android.graphics.Color.DKGRAY,
-    textSize: Float = 30f
+    textSize: Float = 30f,
+    minZoomForConstantSize: Float = 0.76f
 ) {
     // Don't render labels if zoom level is too low
     if (canvasScale < 0.48f) {
@@ -32,10 +34,17 @@ fun DrawScope.drawRoomLabels(
     val cosAngle = cos(angleRad)
     val sinAngle = sin(angleRad)
 
+    // Calculate text size: maintain constant size at zoom >= minZoomForConstantSize
+    val effectiveTextSize = if (canvasScale >= minZoomForConstantSize) {
+        textSize / minZoomForConstantSize  // fixed size at higher zoom
+    } else {
+        textSize / canvasScale  // scale down at lower zoom
+    }
+
     drawIntoCanvas { canvas ->
         val paint = Paint().apply {
             color = textColor
-            this.textSize = textSize / canvasScale
+            this.textSize = effectiveTextSize
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
@@ -43,7 +52,7 @@ fun DrawScope.drawRoomLabels(
         // Paint for the white outline/border
         val outlinePaint = Paint().apply {
             color = android.graphics.Color.WHITE
-            this.textSize = textSize / canvasScale
+            this.textSize = effectiveTextSize
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
             style = Paint.Style.STROKE
